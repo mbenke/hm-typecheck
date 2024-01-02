@@ -34,6 +34,9 @@ run = do
   tryCheck [expr| \x xs -> foldr (\y r -> or (eq x y) r) false xs |]
   tryCheck [expr| let elem = \x xs -> foldr (\y r -> or (eq x y) r) false xs in elem |]
   tryCheck [expr| let elem = \x xs -> foldr (\y r -> or (eq x y) r) false xs in elem 1 nil |]
+  tryCheck [expr| \ x xs -> or (eq x (head xs)) (eq (tail xs) nil) |]
+  tryCheck [expr| \ x xs -> let elem = \x xs -> foldr (\y r -> or (eq x y) r) false xs in or (elem x xs) (eq (tail xs) nil) |]
+
   -- test error reporting:
   -- tryCheck undefined
 
