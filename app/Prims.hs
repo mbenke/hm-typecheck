@@ -14,10 +14,12 @@ primVals =
   , ("not", monotype $ bool :-> bool)
   , ("or", bool2)
   , ("and", bool2)
-  , ("ifte", forAll "a" $ bool :-> a :-> a :-> a)   
+  , ("ifte", forAll "a" $ bool :-> a :-> a :-> a)
   , ("nil", forAll "a" $ list a)
   , ("cons", forAll "a" $ a :-> list a :-> list a)
   , ("foldr", forAll "a b" $ (a :-> b :-> b) :-> b :-> list a :-> b)
+  , ("head", forAll "a" $ list a :-> a)
+  , ("tail", forAll "a" $ list a :-> list a)
   , ("eq", Forall ["a"] $ [IsIn "Eq" a] :=> a :-> a :-> bool)
   ] where
   a = TVar "a"
