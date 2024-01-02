@@ -145,8 +145,8 @@ typeCheck exp = case typeOf exp of
                   Left e -> putStrLn "Error: " >> putStrLn e
                   Right t -> putStrLn $ (showExpr exp) ++ " :: " ++ show t
 
-testCheck :: Expr -> IO ()
-testCheck exp = do
+verboseCheck :: Expr -> IO ()
+verboseCheck exp = do
   let expS = showExpr exp
   putStrLn $ "Check: " ++ expS
   let (result,state) = runTCM (typeOf1 exp)
