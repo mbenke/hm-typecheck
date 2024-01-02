@@ -23,6 +23,7 @@ type Method = Name
 type Inst = Qual Pred
 
 data TcState = TcState {
+ tcsLogEnabled :: Bool,
  tcsLog :: [String],   -- log, reversed
  tcsEnv :: Env,        -- value env
  tcsTT :: TypeTable,
@@ -33,6 +34,16 @@ data TcState = TcState {
  constraints :: Constraints
 }
 
+initState = TcState
+  { tcsLogEnabled = False
+  , tcsLog = []
+  , tcsEnv = primEnv
+  , tcsTT = primTT
+  , tcsCT = primCT
+  , tcsNS = namePool
+  , tcsSubst = emptySubst
+  , constraints = []
+  }
 
 class ToStr a where
   str :: a -> String
@@ -53,8 +64,16 @@ getEnv = gets tcsEnv
 putEnv :: Env -> T ()
 putEnv env = modify (\r -> r { tcsEnv = env })
 
+setLogging :: Bool -> T Bool
+setLogging b = do
+  old <- gets tcsLogEnabled
+  modify (\r -> r { tcsLogEnabled = b })
+  pure b
+
 info :: [String] -> T ()
-info ss = modify (\r -> r { tcsLog = concat ss:tcsLog r })
+info ss = do
+  logging <- gets tcsLogEnabled
+  when logging $ modify (\r -> r { tcsLog = concat ss:tcsLog r })
 
 extEnv :: Name -> Scheme -> TCM ()
 extEnv n s = do
@@ -137,7 +156,6 @@ addPolyBind :: Name -> Scheme -> Env -> Env
 addPolyBind n s = Map.insert n s
 
 runTcS t = runState t initState
-initState = TcState [] primEnv primTT primCT namePool emptySubst []
 
 primEnv :: Env
 primEnv = Map.fromList primVals
