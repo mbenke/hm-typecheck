@@ -32,7 +32,7 @@ run = do
   tryCheck [expr| foldr (\c n -> add 1 n) 0 |]
   tryCheck [expr| let sum = foldr (\c  n -> add 1 n) 0 in sum |]
   tryCheck [expr| \x xs -> foldr (\y r -> or (eq x y) r) false xs |]
-  verboseCheck [expr| let elem = \x xs -> foldr (\y r -> or (eq x y) r) false xs in elem |]
+  tryCheck [expr| let elem = \x xs -> foldr (\y r -> or (eq x y) r) false xs in elem |]
   tryCheck [expr| let elem = \x xs -> foldr (\y r -> or (eq x y) r) false xs in elem 1 nil |]
   -- test error reporting:
   -- tryCheck undefined

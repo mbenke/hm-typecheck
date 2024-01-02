@@ -25,12 +25,15 @@ tiExpr (ELam args e1) = do
   putEnv env
   pure $ (ps, foldr (:->) t1 tas)
 
-tiExpr (EVar n) = do
-  s <- askType (name n)
+tiExpr (EVar v) = do
+  s <- askType (name v)
+  info ["var ", name v, " :: ", str s]
   ps :=> t <- freshInst s
+  info ["var ", str ps, " |- ", name v, " :: ", str t]
   pure (ps, t)
 
 tiExpr e@(EApp e1 e2) = do
+  setLogging False
   (ps, t1) <- tiExpr e1
   (qs, t2) <- tiExpr e2
   freshname <- tcmDeplete
@@ -38,19 +41,22 @@ tiExpr e@(EApp e1 e2) = do
   -- info  ["unify ", show t1, " ~ ", show (t2 :-> tr)]
   unify t1 (t2 :-> tr)
   s <- getSubst
-  info ["getSubst: ", show s]
+  -- info ["getSubst: ", show s]
   let tr' = apply s tr
+  let preds = apply s (ps ++ qs)
   info ["tiExpr ", str e, " :: ", str tr' ]
-  pure (ps ++ qs, tr')
+  pure (preds, tr')
 
 tiExpr exp@(ELet ident e1 e2) = do
   let n = name ident
   (ps, t1) <- tiExpr e1
-  info ["tiExpr ", show ps, "|-", str e1, " :: ", str t1 ]
+  info ["tiExpr ", show ps, " |- ", str e1, " :: ", str t1 ]
   s <- generalize (ps, t1)
-  info ["tiExpr ", str e1, " :: ", str s ]
+  restore <- setLogging True
+  info ["tiExpr let ", n, " :: ", str s ]
+  setLogging restore
   (qs, t) <- withExtEnv n s (tiExpr e2)
-  pure (ps ++ qs, t)
+  pure (qs, t)
 
 tiExpr (ERec [] e) = tiExpr e
 tiExpr _ = error "ERec not implemented" -- TODO
@@ -68,8 +74,7 @@ addArgs args = do
 generalize :: ([Pred], Type) -> TCM Scheme
 generalize (ps0, t0) = do
   envVars <- getFreeVars
-  t <- withCurrentSubst t0
-  ps1 <- withCurrentSubst ps0
+  (ps1, t) <- withCurrentSubst (ps0, t0)
   ce <- gets tcsCT
   let ps2 = simplify ce ps1
   let typeVars =  ftv t
@@ -149,7 +154,7 @@ verboseCheck :: Expr -> IO ()
 verboseCheck exp = do
   let expS = showExpr exp
   putStrLn $ "Check: " ++ expS
-  let (result,state) = runTCM (typeOf1 exp)
+  let (result,state) = runTCM (setLogging True >> typeOf1 exp)
   let  cons = constraints state
   let  subst = tcsSubst state
   let history = reverse (tcsLog state)
@@ -169,8 +174,8 @@ verboseCheck exp = do
                     print typ
                     -- putStrLn "Constraints:"
                     -- print cons
-                    putStr "Substitution:"
-                    print subst
+                    -- putStr "Substitution:"
+                    -- print subst
 
 {-
 solve :: Constraints -> Subst -> TCM Subst
