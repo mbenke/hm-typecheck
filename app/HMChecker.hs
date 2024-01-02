@@ -89,8 +89,8 @@ isFreeInEnv tv = do
   let etv = ftv ets
   pure (tv `elem` etv)
 
-typeOf1 :: Expr -> TCM Scheme
-typeOf1 exp = catchError ty handler where
+schemeOf :: Expr -> TCM Scheme
+schemeOf exp = catchError ty handler where
   ty = (tiExpr exp) >>= generalize
   -- generalize (ps, t) = Forall [] (ps :=> t)   -- FIXME: add context reduction
   handler :: String -> TCM Scheme
@@ -141,7 +141,7 @@ entail ce ps p = p `elem` ps ||
 
 -- typeOf :: Expr -> Either String Scheme
 typeOf exp = do
-  let (t,state) = runTCM (typeOf1 exp)
+  let (t,state) = runTCM (schemeOf exp)
   let subst = tcsSubst state
   apply subst <$> t
 
@@ -154,7 +154,7 @@ verboseCheck :: Expr -> IO ()
 verboseCheck exp = do
   let expS = showExpr exp
   putStrLn $ "Check: " ++ expS
-  let (result,state) = runTCM (setLogging True >> typeOf1 exp)
+  let (result,state) = runTCM (setLogging True >> schemeOf exp)
   let  cons = constraints state
   let  subst = tcsSubst state
   let history = reverse (tcsLog state)

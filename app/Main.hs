@@ -20,31 +20,31 @@ expSkk :: Expr
 expSkk = vap expS [expK, expK]
 
 run = do
-  tryCheck expS
-  tryCheck expSkk
-  -- tryCheck [expr| \x -> x x |]
-  -- tryCheck [expr| add 1 false |]
+  checkExpr expS
+  checkExpr expSkk
+  -- checkExpr [expr| \x -> x x |]
+  -- checkExpr [expr| add 1 false |]
   -- testCheck [expr| add 2 3 |]
-  tryCheck [expr| let n5 = add 2 3 in n5 |]
-  tryCheck [expr| let id = \x -> x in id id |]
-  tryCheck [expr| foldr cons nil |]
-  tryCheck [expr| foldr add 0 |]
-  tryCheck [expr| foldr (\c n -> add 1 n) 0 |]
-  tryCheck [expr| let sum = foldr (\c  n -> add 1 n) 0 in sum |]
-  tryCheck [expr| \x xs -> foldr (\y r -> or (eq x y) r) false xs |]
-  tryCheck [expr| let elem = \x xs -> foldr (\y r -> or (eq x y) r) false xs in elem |]
-  tryCheck [expr| let elem = \x xs -> foldr (\y r -> or (eq x y) r) false xs in elem 1 nil |]
-  tryCheck [expr| \ x xs -> or (eq x (head xs)) (eq (tail xs) nil) |]
-  tryCheck [expr| \ x xs -> let elem = \x xs -> foldr (\y r -> or (eq x y) r) false xs in or (elem x xs) (eq (tail xs) nil) |]
+  checkExpr [expr| let n5 = add 2 3 in n5 |]
+  checkExpr [expr| let id = \x -> x in id id |]
+  checkExpr [expr| foldr cons nil |]
+  checkExpr [expr| foldr add 0 |]
+  checkExpr [expr| foldr (\c n -> add 1 n) 0 |]
+  checkExpr [expr| let sum = foldr (\c  n -> add 1 n) 0 in sum |]
+  checkExpr [expr| \x xs -> foldr (\y r -> or (eq x y) r) false xs |]
+  checkExpr [expr| let elem = \x xs -> foldr (\y r -> or (eq x y) r) false xs in elem |]
+  checkExpr [expr| let elem = \x xs -> foldr (\y r -> or (eq x y) r) false xs in elem 1 nil |]
+  checkExpr [expr| \ x xs -> or (eq x (head xs)) (eq (tail xs) nil) |]
+  checkExpr [expr| \ x xs -> let elem = \x xs -> foldr (\y r -> or (eq x y) r) false xs in or (elem x xs) (eq (tail xs) nil) |]
 
   -- test error reporting:
-  -- tryCheck undefined
+  -- checkExpr undefined
 
 report :: ErrorCall -> IO ()
 report (ErrorCall s) = putStrLn ("ERR: " ++ s)
 
-tryCheck :: Expr -> IO ()
-tryCheck exp = do
+checkExpr :: Expr -> IO ()
+checkExpr exp = do
   res <- try $ typeCheck exp
   case res of
     Left err -> putStrLn ("Error in "++showExpr exp) >> report err
