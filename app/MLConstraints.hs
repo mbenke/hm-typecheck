@@ -46,6 +46,10 @@ instance HasTypes a => HasTypes [a] where
   apply s = map (apply s)
   ftv = foldr union [] . map ftv
 
+instance (HasTypes a, HasTypes b) => HasTypes (a,b) where
+  apply s (a,b) = (apply s a, apply s b)
+  ftv (a,b) = ftv a `union` ftv b
+
 instance HasTypes t => HasTypes(Qual t) where
   apply s (ps :=> t) = apply s ps :=> apply s t
   ftv (ps :=> t) = ftv ps `union` ftv t
