@@ -14,30 +14,38 @@ import NameSupply
 import MLConstraints
 import TCM
 
+
+tiArg :: Arg -> TCM (Name, Type)
+tiArg (UArg ident) = do
+  a <- tcmDeplete
+  pure (name ident, TVar a)
+
+
 tiExpr :: Expr -> TCM ([Pred], Type)
 tiExpr (EInt _) = pure ([], TInt)
-tiExpr (ELam ident e1) = do
-  let n = name ident
-  freshName <- tcmDeplete
-  let t0 = TVar freshName
-  (ps, t1) <- withExtEnv n (monotype t0) $ tiExpr e1
+tiExpr (ELam arg e1) = do
+  env <- getEnv
+  (n, t0) <- tiArg arg
+  extEnv n (monotype t0)
+  (ps, t1) <- tiExpr e1
   ta <- withCurrentSubst t0
+  putEnv env
   pure $ (ps, ta :-> t1)
 
 tiExpr (EVar n) = do
   s <- askType (name n)
   ps :=> t <- freshInst s
   pure (ps, t)
-  
+
 tiExpr e@(EApp e1 e2) = do
   (ps, t1) <- tiExpr e1
   (qs, t2) <- tiExpr e2
   freshname <- tcmDeplete
   let tr = TVar freshname
-  -- info  ["unify ", show t1, " ~ ", show (t2 :-> tr)]  
+  -- info  ["unify ", show t1, " ~ ", show (t2 :-> tr)]
   unify t1 (t2 :-> tr)
   s <- getSubst
-  info ["getSubst: ", show s] 
+  info ["getSubst: ", show s]
   let tr' = apply s tr
   info ["tiExpr ", str e, " :: ", str tr' ]
   pure (ps ++ qs, tr')
@@ -50,7 +58,7 @@ tiExpr exp@(ELet ident e1 e2) = do
   info ["tiExpr ", str e1, " :: ", str s ]
   (qs, t) <- withExtEnv n s (tiExpr e2)
   pure (ps ++ qs, t)
-  
+
 tiExpr (ERec [] e) = tiExpr e
 tiExpr _ = error "ERec not implemented" -- TODO
 

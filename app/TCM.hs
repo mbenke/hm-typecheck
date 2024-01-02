@@ -25,7 +25,7 @@ type Inst = Qual Pred
 data TcState = TcState {
  tcsLog :: [String],   -- log, reversed
  tcsEnv :: Env,        -- value env
- tcsTT :: TypeTable,  
+ tcsTT :: TypeTable,
  tcsCT :: ClassTable,
 -- tcsIT :: InstTable
  tcsNS :: NS,
@@ -47,14 +47,21 @@ instance MonadFail Identity where
 type TCM a = ExceptT String (State TcState) a
 type T a = TCM a
 
+getEnv :: T Env
+getEnv = gets tcsEnv
+
 putEnv :: Env -> T ()
 putEnv env = modify (\r -> r { tcsEnv = env })
 
 info :: [String] -> T ()
 info ss = modify (\r -> r { tcsLog = concat ss:tcsLog r })
 
+extEnv :: Name -> Scheme -> TCM ()
+extEnv n s = do
+  env <- gets tcsEnv
+  putEnv (Map.insert n s env)
+
 withExtEnv :: Name -> Scheme -> TCM a -> TCM a
--- withExtEnv n s t = local (Map.insert n s) t
 withExtEnv n s ta = do
   env <- gets tcsEnv
   putEnv (Map.insert n s env)
@@ -74,7 +81,6 @@ showEnv = do
   pure s
 
 
--- extEnv n s = modify
 askType :: Name -> TCM Scheme
 askType n = do
   result <- gets (Map.lookup n . tcsEnv)
