@@ -1,0 +1,51 @@
+module Prims where
+import MLTypes
+import MLExpr
+
+primVals :: [(Name, Scheme)]
+primVals =
+  [ ("undefined", forAll "a" a)
+  , ("zero", monotype $ int :-> int :-> int)
+  , ("add", monotype $ int :-> int :-> int)
+  , ("ifzero", forAll "a" $ int :-> a :-> a :-> a )
+  , ("recInt", forAll "a" $ (int :-> a) :-> a :-> int :-> a)
+  , ("true" , monotype bool)
+  , ("false", monotype bool)
+  , ("not", monotype $ bool :-> bool)
+  , ("or", bool2)
+  , ("and", bool2)
+  , ("ifte", forAll "a" $ bool :-> a :-> a :-> a)   
+  , ("nil", forAll "a" $ list a)
+  , ("cons", forAll "a" $ a :-> list a :-> list a)
+  , ("foldr", forAll "a b" $ (a :-> b :-> b) :-> b :-> list a :-> b)
+  , ("eq", Forall ["a"] $ [IsIn "Eq" a] :=> a :-> a :-> bool)
+  ] where
+  a = TVar "a"
+  b = TVar "b"
+  bool2 = monotype $ bool :-> bool :-> bool
+  list x = TCon "List" [x]
+
+primTypes :: [(Name, Int)]
+primTypes =
+  [ ("Int", 0)
+  , ("Bool", 0)
+  , ("->",  2)
+  , ("List", 1)
+  , ("Maybe", 1)
+  , ("Either", 2)
+  ]
+
+primClasses = [
+  ("Eq", eqClassInfo)
+              ]
+
+eqClassInfo = (["eq"],
+               [ [] :=> IsIn "Eq" int
+               , [] :=> IsIn "Eq" bool
+               , [IsIn cEq a] :=> IsIn cEq (list a)
+               ])
+  where
+    a = TVar "a"
+    b = TVar "b"
+    list x = TCon "List" [x]
+    cEq = "Eq"

@@ -1,0 +1,59 @@
+cabal-version:      2.4
+name:               hm
+version:            0.1.0.0
+
+-- A short (one-line) description of the package.
+-- synopsis:
+
+-- A longer description of the package.
+-- description:
+
+-- A URL where users can report bugs.
+-- bug-reports:
+
+-- The license under which the package is released.
+-- license:
+author:             Marcin Benke
+maintainer:         marcin@benke.org
+
+-- A copyright notice.
+-- copyright:
+-- category:
+extra-source-files: CHANGELOG.md
+
+executable hm
+    main-is:          Main.hs
+    default-extensions: LambdaCase, PatternSynonyms
+    
+    -- Modules included in this executable, other than Main.
+    other-modules:
+      MLExpr HMChecker MLConstraints MLSyntax MLTypes NameSupply, Prims, TCM
+    
+    -- LANGUAGE extensions used by modules in this package.
+    other-extensions: TemplateHaskell, QuasiQuotes, PatternSynonyms
+    build-depends:    base ^>=4.16.4.0,
+                      mtl >= 2.2,
+                      containers >= 0.6,
+                      BNFC-meta >= 0.6
+                      
+                      
+    hs-source-dirs:   app
+    -- default-language: Haskell2010
+    default-language: GHC2021
+
+
+-- test-suite testsyntax
+--     type:       exitcode-stdio-1.0
+--     main-is:          TestSyntax.hs
+--     other-modules:
+--       MLExpr MLChecker MLConstraints MLSyntax MLTypes NameSupply,
+--       TestExpr
+    
+--     build-depends:    base ^>=4.16.4.0,
+--                       mtl >= 2.2,
+--                       containers >= 0.6,
+--                       BNFC-meta >= 0.6
+                      
+                      
+--     hs-source-dirs:   app
+--     default-language: GHC2021
