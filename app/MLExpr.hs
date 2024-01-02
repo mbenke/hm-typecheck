@@ -5,7 +5,7 @@ import Language.LBNF.Runtime
 import Language.LBNF(lbnf, bnfc)
 
 bnfc [lbnf|
-ELam . Expr ::= "\\" Arg "->" Expr ;
+ELam . Expr ::= "\\" [Arg] "->" Expr ;
 ELet . Expr ::= "let" Ident "=" Expr "in" Expr;
 ERec . Expr ::= "letrec" [Def] "in" Expr;
 EApp . Expr1 ::= Expr1 Expr2 ;

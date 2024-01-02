@@ -51,7 +51,11 @@ instance Show Pred where
 showClass name = name
 
 type Tyvar = String
-data Scheme = Forall [Tyvar] (Qual Type) 
+data Scheme = Forall [Tyvar] (Qual Type)
+
+-- funtype [a1, ..., an] r = a1 :-> ... an :-> r
+funtype :: [Type] -> Type -> Type
+funtype as r = foldr (:->) r as
 
 monotype :: Type -> Scheme
 monotype t = Forall [] ([] :=> t)
@@ -62,10 +66,10 @@ forAll s t = Forall (words s) ([] :=> t)
 -- deriving instance Show Scheme
 
 instance Show Scheme where
-    showsPrec d (Forall [] t) = shows t    
+    showsPrec d (Forall [] t) = shows t
     showsPrec d (Forall as t) = showString "forall ". showStrings as . showString "." . shows t
 
 showStrings :: [String] -> ShowS
 showStrings [] = id
-showStrings [s] = showString s                 
+showStrings [s] = showString s
 showStrings (s:ss) = showString s. showString " " . showStrings ss

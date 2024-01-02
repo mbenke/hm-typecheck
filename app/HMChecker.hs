@@ -15,22 +15,15 @@ import MLConstraints
 import TCM
 
 
-tiArg :: Arg -> TCM (Name, Type)
-tiArg (UArg ident) = do
-  a <- tcmDeplete
-  pure (name ident, TVar a)
-
-
 tiExpr :: Expr -> TCM ([Pred], Type)
 tiExpr (EInt _) = pure ([], TInt)
-tiExpr (ELam arg e1) = do
+tiExpr (ELam args e1) = do
   env <- getEnv
-  (n, t0) <- tiArg arg
-  extEnv n (monotype t0)
+  as <- addArgs args
   (ps, t1) <- tiExpr e1
-  ta <- withCurrentSubst t0
+  tas <- withCurrentSubst as
   putEnv env
-  pure $ (ps, ta :-> t1)
+  pure $ (ps, foldr (:->) t1 tas)
 
 tiExpr (EVar n) = do
   s <- askType (name n)
@@ -61,6 +54,16 @@ tiExpr exp@(ELet ident e1 e2) = do
 
 tiExpr (ERec [] e) = tiExpr e
 tiExpr _ = error "ERec not implemented" -- TODO
+
+tiArg :: Arg -> TCM (Name, Type)
+tiArg (UArg ident) = do
+  a <- tcmDeplete
+  pure (name ident, TVar a)
+
+addArgs :: [Arg] -> TCM [Type]
+addArgs args = do
+  typedArgs <- forM args tiArg
+  forM typedArgs $ \(n,t) -> extEnv n (monotype t) >> pure t
 
 generalize :: ([Pred], Type) -> TCM Scheme
 generalize (ps0, t0) = do
