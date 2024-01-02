@@ -14,11 +14,13 @@ type Class = String
 data Type = TCon String [Type] {- | Type :-> Type -} | TVar Tyvar
   deriving Eq
 
-desugarT :: Type -> Type
-desugarT t = t
+desugarT :: CType -> Type
+desugarT (CTVar i) = TVar (name i)
+desugarT (CTArr t u) = desugarT t :-> desugarT u
+desugarT (CTCon i ts) = TCon (name i) (map desugarT ts) 
 
 pattern TInt = TCon "Int" []
-pattern (:->) a b = TCon "->" [a,b]
+pattern (:->) a b = TCon "(->)" [a,b]
 int :: Type
 int = TInt
 
