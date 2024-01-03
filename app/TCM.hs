@@ -4,6 +4,7 @@ import Control.Monad.Except
 import Control.Monad.State
 import Control.Monad.Identity
 import qualified Data.Map as Map
+import Data.Maybe(isJust)
 
 import NameSupply
 import MLConstraints
@@ -93,12 +94,12 @@ withCurrentSubst t = do
   s <- gets tcsSubst
   pure (apply s t)
 
-showEnv :: T String
-showEnv = do
-  env <- gets tcsEnv
-  let s = unlines . map show $ Map.toList env
-  pure s
-
+showEnv :: Bool -> Env -> String
+showEnv withPrims env = concat . map showEntry $ Map.toList env where
+    showEntry (n, s)
+        | not(isPrimitive n) || withPrims = n ++ " : " ++ str s ++ "\n"
+        | otherwise = ""
+    isPrimitive n = isJust (Map.lookup n primEnv)
 
 askType :: Name -> TCM Scheme
 askType n = do

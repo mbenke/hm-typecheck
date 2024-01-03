@@ -39,7 +39,7 @@ tiExpr e@(EApp e1 e2) = do
   freshname <- tcmDeplete
   let tr = TVar freshname
   -- info  ["unify ", show t1, " ~ ", show (t2 :-> tr)]
-  unify t1 (t2 :-> tr)
+  unify t1 (t2 :-> tr) `wrapError` e
   s <- getSubst
   -- info ["getSubst: ", show s]
   let tr' = apply s tr
@@ -49,9 +49,7 @@ tiExpr e@(EApp e1 e2) = do
 
 tiExpr exp@(ELet ident e1 e2) = do
   let n = name ident
-  (ps, t1) <- tiExpr e1
-  info ["tiExpr ", show ps, " |- ", str e1, " :: ", str t1 ]
-  s <- generalize (ps, t1)
+  s <- tiBind n [] e1
   restore <- setLogging True
   info ["tiExpr let ", n, " :: ", str s ]
   setLogging restore
@@ -60,6 +58,16 @@ tiExpr exp@(ELet ident e1 e2) = do
 
 tiExpr (ERec [] e) = tiExpr e
 tiExpr _ = error "ERec not implemented" -- TODO
+
+tiBind :: Name -> [Arg] -> Expr -> TCM Scheme
+tiBind n args e = do
+  env <- getEnv
+  as <- addArgs args
+  (ps, t0) <- tiExpr e
+  info ["tiBind ", show ps, " |- ", str e, " :: ", str t0 ]
+  tas <- withCurrentSubst as
+  putEnv env
+  generalize (ps, foldr (:->) t0 tas)
 
 tiArg :: Arg -> TCM (Name, Type)
 tiArg (UArg ident) = do
@@ -90,19 +98,31 @@ isFreeInEnv tv = do
   pure (tv `elem` etv)
 
 schemeOf :: Expr -> TCM Scheme
-schemeOf exp = catchError ty handler where
+schemeOf exp = wrapError ty exp where
   ty = (tiExpr exp) >>= generalize
-  -- generalize (ps, t) = Forall [] (ps :=> t)   -- FIXME: add context reduction
-  handler :: String -> TCM Scheme
-  handler e = do
-    envRep <- showEnv
-    throwError $
-      "Type error in\n  "
-      ++showExpr exp++"\n"
-      ++e
-      -- ++"\nEnv:"
-      -- ++envRep
 
+wrapError :: ToStr ctxt => TCM a -> ctxt -> TCM a
+wrapError m ctxt = catchError m handler where
+    handler msg =
+        throwError (decorate msg)
+    decorate msg = msg ++ "\n  - in " ++ str ctxt
+
+tiDecl :: Decl -> TCM Scheme
+tiDecl (ValDecl i ct) = do
+  let t = desugarT ct
+  let tvs = ftv t
+  let s = Forall tvs ([] :=> t)
+  extEnv (name i) s
+  pure s
+tiDecl (ValBind i as e) = do
+  let n = name i
+  s <- tiBind n as e `wrapError` n
+  extEnv n s
+  pure s
+
+
+tiProg :: Prog -> TCM ()
+tiProg (Prog decls) = mapM_ tiDecl decls
 
 ---- Classes
 
@@ -146,8 +166,8 @@ typeOf exp = do
   apply subst <$> t
 
 typeCheck :: Expr -> IO ()
-typeCheck exp = case typeOf exp of
-                  Left e -> putStrLn "Error: " >> putStrLn e
+typeCheck exp = case evalTCM (schemeOf exp) of
+                  Left e -> putStrLn "Error: " >> putStrLn e >> putStrLn ""
                   Right t -> putStrLn $ (showExpr exp) ++ " :: " ++ show t
 
 verboseCheck :: Expr -> IO ()

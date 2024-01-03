@@ -1,7 +1,13 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell #-}
-module MLExpr where
+module MLExpr(
+  Prog(..), Expr(..), Arg(..), Decl(..), CType(..), Name,
+  name, expr, prog, decl, showExpr,
+  BNFC.Print(..),
+  module Language.LBNF.Runtime
+             ) where
+import qualified Language.LBNF.Compiletime as BNFC
 import Language.LBNF.Compiletime
-import Language.LBNF.Runtime    
+import Language.LBNF.Runtime(printTree)
 import Language.LBNF(lbnf, bnfc)
 
 bnfc [lbnf|
@@ -17,7 +23,7 @@ coercions Expr 2;
 UArg . Arg ::= Ident;
 separator Arg "";
 
-ValDecl. Decl ::= Ident "::" CType; 
+ValDecl. Decl ::= Ident "::" CType;
 ValBind. Decl ::= Ident [Arg] "=" Expr;
 
 separator Decl ";";
@@ -30,7 +36,10 @@ CTVar . CType2 ::= Ident;
 coercions CType 2;
 
 separator CType ",";
-|]    
+
+comment "//" ;
+comment "/*" "*/" ;
+|]
 
 type Name = String
 name :: Ident -> Name
