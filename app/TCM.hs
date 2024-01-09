@@ -76,6 +76,9 @@ info ss = do
   logging <- gets tcsLogEnabled
   when logging $ modify (\r -> r { tcsLog = concat ss:tcsLog r })
 
+warn :: [String] -> T ()
+warn ss = do modify (\r -> r { tcsLog = concat ss:tcsLog r })
+
 extEnv :: Name -> Scheme -> TCM ()
 extEnv n s = do
   env <- gets tcsEnv
