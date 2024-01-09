@@ -4,7 +4,7 @@ import MLTypes
 import HMChecker(typeCheck, verboseCheck, tiDecl, tiProg)
 import TCM
 import Control.Exception
-
+import Control.Monad
 -- QoL helpers
 vap :: Expr -> [Expr] -> Expr
 vap e = foldl EApp e
@@ -23,6 +23,23 @@ expSkk = vap expS [expK, expK]
 decl1 :: Decl
 decl1 = [decl| id = \x -> x |]
 
+prog1 = [prog|
+     len = foldr (\ c n -> add 1 n) 0;
+     sum = foldr add 0;
+     elem x xs = foldr (\y r -> or (eq x y) r) false xs;
+     f1 = elem 1 nil;
+     f2 x xs = or (eq x (head xs)) (eq (tail xs) nil);
+     f3 x xs = or (elem x xs) (eq (tail xs) nil);
+    |]
+
+prog2 :: Prog
+prog2 = [prog|
+    mi = newMRef 42;
+    x1 = load mi;
+    // x2 = load siExample;
+    |]
+
+
 run = do
   checkExpr expS
   checkExpr expSkk
@@ -33,19 +50,13 @@ run = do
   checkExpr [expr| let n5 = add 2 3 in n5 |]
   checkExpr [expr| foldr cons nil |]
   checkExpr [expr| foldr add 0 |]
-  writeln "--------------------------------------------"
-  checkProg
-    [prog|
-     len = foldr (\ c n -> add 1 n) 0;
-     sum = foldr add 0;
-     elem x xs = foldr (\y r -> or (eq x y) r) false xs;
-     f1 = elem 1 nil;
-     f2 x xs = or (eq x (head xs)) (eq (tail xs) nil);
-     f3 x xs = or (elem x xs) (eq (tail xs) nil);
-    |]
-  writeln "--------------------------------------------"
-  writeln "Error example:"
-  checkProg [prog| sum = foldr add 0; bad = sum false  |]
+  writeln "-----------------------------------------------------------------------------"
+  checkProg prog1
+  writeln "-----------------------------------------------------------------------------"
+  checkProg prog2
+  writeln "-----------------------------------------------------------------------------"
+  -- writeln "Error example:"
+  -- checkProg [prog| sum = foldr add 0; bad = sum false  |]
 
 
 report :: ErrorCall -> IO ()
@@ -63,7 +74,10 @@ checkExpr exp = typeCheck exp
 checkDecl :: Decl -> IO TcState
 checkDecl = check tiDecl
 
-checkProg prog = do
+checkProg = checkProg' False
+vcheckProg = checkProg' True
+
+checkProg' verbose prog = do
   let (res, state) = runTCM (tiProg prog)
   case res of
     Left err -> putStrLn "Error: " >> putStrLn err
@@ -72,6 +86,11 @@ checkProg prog = do
         let env = tcsEnv state
         let withPrims = False
         writeln (showEnv withPrims env)
+  when verbose $ do
+             let history = reverse (tcsLog state)
+             hrule
+             putStrLn "History:"
+             mapM_ putStrLn history
 
 check :: (Print e, Show t) => (e -> TCM t)-> e -> IO (TcState)
 check c e = do
@@ -84,6 +103,8 @@ check c e = do
 
 main = try run >>= \case
   Left e -> report e
-  Right _ -> putStrLn "---------"
+  Right _ -> putStrLn ""
 
 writeln = putStrLn
+hrule = writeln hruleStr
+hruleStr = replicate 77 '-'

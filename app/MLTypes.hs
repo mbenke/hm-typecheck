@@ -8,7 +8,10 @@ infixr 5 :->
 infix 2 :=>
 
 data Qual t = [Pred] :=> t deriving Eq
-data Pred = IsIn Class Type deriving Eq
+-- data Pred = IsIn Class Type deriving Eq
+data Pred = InCls [Tyvar] String [Type] Type deriving Eq
+pattern IsIn c t = InCls [] c [] t
+
 type Class = String
 
 data Type = TCon String [Type] {- | Type :-> Type -} | TVar Tyvar
@@ -35,7 +38,8 @@ instance Show Type where
              showsPrec arr_prec v
           where arr_prec = 5
   showsPrec d (TCon n []) = showString n
-  showsPrec d (TCon n ts) = showString n . showParen True (showString r) where
+  showsPrec d (TCon n ts) = showParen (d > 10) $
+                            showString n . showParen True (showString r) where
     args = map show ts
     r = intercalate ", " args
 
@@ -48,8 +52,9 @@ instance Show t => Show (Qual t) where
       showps = showString $ intercalate ", " (map show ps)
 
 instance Show Pred where
-  showsPrec d (IsIn c t) = (showClass c++) . (' ':) . showsPrec 6 t
-
+  showsPrec d (IsIn c t) = (showClass c++) . (' ':) . showsPrec 11 t
+  showsPrec d (InCls tvs c as t) = (showClass c++) . (' ':) . showList as
+                                   . (' ':) . showsPrec 11 t
 showClass name = name
 
 type Tyvar = String

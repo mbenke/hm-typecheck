@@ -21,11 +21,16 @@ primVals =
   , ("head", forAll "a" $ list a :-> a)
   , ("tail", forAll "a" $ list a :-> list a)
   , ("eq", Forall ["a"] $ [IsIn "Eq" a] :=> a :-> a :-> bool)
+  , ("newMRef", forAll "a" $ a :->  memo a)
+  , ("load", Forall ["a", "b"] $ [InCls ["a", "b"] "Ref" [b] a] :=> a :-> b)
+  , ("siExample", monotype $ TCon "SI" [])
   ] where
   a = TVar "a"
   b = TVar "b"
   bool2 = monotype $ bool :-> bool :-> bool
   list x = TCon "List" [x]
+  stack x = TCon "Stack" [x]
+  memo x = TCon "Memory" [x]   
 
 primTypes :: [(Name, Int)]
 primTypes =
@@ -35,11 +40,15 @@ primTypes =
   , ("List", 1)
   , ("Maybe", 1)
   , ("Either", 2)
+  , ("Memory", 1)
+  , ("Stack", 1)
+  , ("SI", 0)
   ]
 
-primClasses = [
-  ("Eq", eqClassInfo)
-              ]
+primClasses =
+  [ ("Eq", eqClassInfo)
+  , ("Ref", refClassInfo)
+  ]
 
 eqClassInfo = (["eq"],
                [ [] :=> IsIn "Eq" int
@@ -51,3 +60,14 @@ eqClassInfo = (["eq"],
     b = TVar "b"
     list x = TCon "List" [x]
     cEq = "Eq"
+
+refClassInfo = (["load"],
+               [ [] :=> InCls [] "Ref" [int] (stack int)
+               , [] :=> InCls ["a"] "Ref" [a] (memo a)
+               , [] :=> InCls [] "Ref" [int] (TCon "SI" [])
+               ])
+  where
+    a = TVar "a"
+    b = TVar "b"
+    stack x = TCon "Stack" [x]
+    memo x = TCon "Memory" [x]   

@@ -56,7 +56,11 @@ instance HasTypes t => HasTypes(Qual t) where
 
 instance HasTypes Pred where
   apply s (IsIn i t) = IsIn i (apply s t)
+  apply s (InCls tvs i as t) = InCls tvs i (apply s as) (apply s t)
+--  apply s (InCls tvs i as t) = InCls tvs i (apply s' as) (apply s' t)
+--      where s' =  expel tvs s
   ftv (IsIn i t) = ftv t
+  ftv (InCls tvs i as t) = ftv as `union` ftv t
 
 instance HasTypes Scheme where
   apply subst (Forall tvs t) = Forall tvs (apply (expel tvs subst) t)
@@ -66,7 +70,7 @@ instance HasTypes Scheme where
 instance HasTypes Subst where
   apply s1 (Subst ps2) = Subst [ (u, apply s1 t) | (u,t) <- ps2 ]
   ftv s = error "ftv not implemented for Subst"
-  
+
 -- infixr 5 @@
 -- (@@) :: Subst -> Subst -> Subst
 
@@ -100,7 +104,15 @@ match (TCon tc1 as1) (TCon tc2 as2)
 match (TVar u) t = pure (u +-> t)
 match _ _ = throwError "types do not match"
 
+matchTypes :: MonadError String m => [Type] -> [Type] -> m Subst
+matchTypes []  [] = pure mempty
+matchTypes (a:as) (b:bs) = do
+  sl <- match a b
+  sr <- matchTypes as bs
+  merge sl sr
 
+
+            
 {-
    Solving (l:->r) ~ (l':->r') amounts to solving [ l ~ l', r ~ r']:
    s1 <- l ~ l'
@@ -168,15 +180,20 @@ errInfinite u t = unwords [
   show t
   ]
 
+unifyTypes :: MonadError String m => [Type] -> [Type] -> m Subst
+unifyTypes ts us = solve (zip ts us) mempty
 
-type E a = Either String a
-testmgu :: Type -> Type -> E Subst
-testmgu = mgu
 
 onPred m (IsIn i t) (IsIn i' t')
   | i == i' = m t t'
   | otherwise = throwError "classes differ"
 
 mguPred, matchPred :: Pred -> Pred -> Either String Subst
-mguPred = onPred mgu
-matchPred = onPred match
+mguPred (InCls _ i as t) (InCls _ i' as' t')
+  | i == i' = unifyTypes (t:as) (t':as')
+  | otherwise = throwError "classes differ"
+
+matchPred (InCls _ i as t) (InCls _ i' as' t')
+  | i == i' = matchTypes (t:as) (t':as')
+  | otherwise = throwError "classes differ"
+  

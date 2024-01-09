@@ -13,6 +13,7 @@ import MLTypes
 import NameSupply
 import MLConstraints
 import TCM
+import Debug
 
 
 tiExpr :: Expr -> TCM ([Pred], Type)
@@ -84,10 +85,11 @@ generalize (ps0, t0) = do
   envVars <- getFreeVars
   (ps1, t) <- withCurrentSubst (ps0, t0)
   ce <- gets tcsCT
-  let ps2 = simplify ce ps1
-  let typeVars =  ftv t
+  (ps2, phi) <- simplifyM ps1
+  let t2 = apply phi t
+  let typeVars =  ftv t2
   let ps = filter (nonTrivial typeVars) ps2
-  return $ Forall (typeVars \\ envVars) (ps2 :=> t) -- FIXME: context red
+  return $ Forall (typeVars \\ envVars) (ps2 :=> t2)
 
 
 isFreeInEnv :: Tyvar -> TCM Bool
@@ -127,7 +129,9 @@ tiProg (Prog decls) = mapM_ tiDecl decls
 ---- Classes
 
 insts :: ClassTable -> Name -> [Inst]
-insts ce n = case Map.lookup n ce of Just (ms, is) -> is
+insts ce n = case Map.lookup n ce of
+               Just (ms, is) -> is
+               Nothing -> error ("instance " ++ n ++ " not found")
 
 getInsts :: Name -> TCM [Inst]
 getInsts n = do
@@ -142,14 +146,21 @@ byInst ce p@(IsIn i t)= msum [tryInst it | it <- insts ce i] where
     tryInst(ps :=> h) = case matchPred h p of
                           Left _ -> Nothing
                           Right u -> Just (map (apply u) ps)
+byInst ce p@(InCls tvs i as t)= msum [tryInst it | it <- insts ce i] where
+    tryInst :: Qual Pred -> Maybe [Pred]
+    tryInst(ps :=> h) = case mguPred h p of
+                          Left _ -> Nothing
+                          Right u -> Just (map (apply u) ps)
 
 nonTrivial :: [Tyvar] -> Pred -> Bool
 nonTrivial tvs (IsIn _ (TVar a)) | not (elem a tvs) = False
 nonTrivial tvs _ = True
 
-simplify :: ClassTable -> [Pred] -> [Pred]
-simplify ce = loop [] where
-    loop rs [] = rs
+simplify :: ClassTable -> [Pred] -> TCM [Pred]
+simplify ce ps = do
+  ce <- gets tcsCT
+  loop [] ps where
+    loop rs [] = pure rs
     loop rs (p:ps) | entail ce (rs ++ ps) p = loop rs ps
                    | otherwise = loop (p:rs) ps
 
@@ -158,6 +169,52 @@ entail ce ps p = p `elem` ps ||
                  case byInst ce p of
                    Nothing -> False
                    Just qs -> all (entail ce ps) qs
+
+simplifyM :: [Pred] -> TCM([Pred], Subst)
+simplifyM ps = do
+  setLogging (length ps > 0)
+  ce <- gets tcsCT
+  info ["> simplifyM ", str ps]
+  loop ce [] ps emptySubst where
+    loop :: ClassTable -> [Pred] -> [Pred] -> Subst -> TCM([Pred], Subst)
+    loop ce rs [] subst = do
+                 info ["< simplifyM ", str ps, " = ", str (rs,subst)]
+                 pure (rs, subst)
+    loop ce rs (p:ps) subst
+             | elem p ps = loop ce rs ps subst
+             | otherwise = case entailM ce (rs++ps) p of
+                 Just phi -> do
+                             info ["< entailM ", str ps, " |- ", str p, " = ", show phi]
+                             loop ce rs ps (phi <> subst)
+                 Nothing -> loop ce (p:rs) ps subst
+
+entailM :: ClassTable -> [Pred] -> Pred -> Maybe Subst
+entailM ce ps p@(IsIn _ _) = if entail ce ps p then Just emptySubst else Nothing -- FIXME
+entailM ce ps p = case elem p ps of
+                    True -> Just emptySubst
+                    False -> do
+                      (qs, u) <- byInstM ce p
+                      case qs of
+                        [] -> Just u
+                        [q] -> do
+                                u' <- entailM ce ps (apply u q)
+                                pure (u <> u')
+
+                        _ -> error("Unimplemented - Complex instance context " ++ show (qs, u))
+
+byInstM :: ClassTable -> Pred -> Maybe ([Pred], Subst)
+byInstM ce p@(InCls tvs i as t) = msum [tryInst it | it <- insts ce i] where
+    tryInst :: Qual Pred -> Maybe ([Pred], Subst)
+    tryInst c@(ps :=> h) = trace (unwords["!> tryInst", str c, "for", str p]) $
+        case mguPred h p of
+          Left _ -> trace(unwords["!< matchPred", str h, "<~", str p,"FAIL"])Nothing
+          Right u -> let tvs = ftv h
+                     in trace(unwords["!< matchPred", str h, "<~", str p,"=",str u])
+                        Just (map (apply u) ps, expel tvs u)
+
+-- solvePred ce ps p = Nothing
+
+
 
 -- typeOf :: Expr -> Either String Scheme
 typeOf exp = do
