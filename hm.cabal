@@ -27,7 +27,7 @@ executable hm
     
     -- Modules included in this executable, other than Main.
     other-modules:
-      MLExpr HMChecker MLConstraints MLSyntax MLTypes NameSupply, Prims, TCM
+      MLExpr HMChecker MLConstraints MLSyntax MLTypes NameSupply, Prims, TCM, Debug
     
     -- LANGUAGE extensions used by modules in this package.
     other-extensions: TemplateHaskell, QuasiQuotes, PatternSynonyms
