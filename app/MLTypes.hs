@@ -9,7 +9,7 @@ infix 2 :=>
 
 data Qual t = [Pred] :=> t deriving Eq
 -- data Pred = IsIn Class Type deriving Eq
-data Pred = InCls [Tyvar] String [Type] Type deriving Eq
+data Pred = InCls [Tyvar] String [Type] Type | Type :~: Type deriving Eq
 pattern IsIn c t = InCls [] c [] t
 
 type Class = String
@@ -55,6 +55,7 @@ instance Show Pred where
   showsPrec d (IsIn c t) = (showClass c++) . (' ':) . showsPrec 11 t
   showsPrec d (InCls tvs c as t) = (showClass c++) . (' ':) . showList as
                                    . (' ':) . showsPrec 11 t
+  showsPrec d (t :~: u) = showParen (d>0) $ showsPrec 1 t . (" ~ "++) . showsPrec 1 u
 showClass name = name
 
 type Tyvar = String

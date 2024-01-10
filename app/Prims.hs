@@ -63,8 +63,8 @@ eqClassInfo = (["eq"],
 
 refClassInfo = (["load"],
                [ [] :=> InCls [] "Ref" [int] (stack int)
-               , [] :=> InCls ["a"] "Ref" [a] (memo a)
-               , [] :=> InCls [] "Ref" [int] (TCon "SI" [])
+               , [b :~:  a] :=> InCls [] "Ref" [b] (memo a)
+               , [b :~: int] :=> InCls [] "Ref" [b] (TCon "SI" [])
                ])
   where
     a = TVar "a"

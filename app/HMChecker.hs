@@ -2,7 +2,7 @@
 module HMChecker where
 -- import Prelude hiding(lookup)
 import Data.List((\\))
-import Data.Maybe(fromJust)
+-- import Data.Maybe(fromJust)
 import Control.Monad.Except
 import Control.Monad.State
 import qualified Data.Map as Map
@@ -145,7 +145,7 @@ byInst ce p@(IsIn i t)= msum [tryInst it | it <- insts ce i] where
     tryInst :: Qual Pred -> Maybe [Pred]
     tryInst(ps :=> h) = case matchPred h p of
                           Left _ -> Nothing
-                          Right u -> Just (map (apply u) ps)
+                          Right u -> Just (apply u ps)
 byInst ce p@(InCls tvs i as t)= msum [tryInst it | it <- insts ce i] where
     tryInst :: Qual Pred -> Maybe [Pred]
     tryInst(ps :=> h) = case mguPred h p of
@@ -165,10 +165,8 @@ simplify ce ps = do
                    | otherwise = loop (p:rs) ps
 
 entail :: ClassTable -> [Pred] -> Pred -> Bool
-entail ce ps p = p `elem` ps ||
-                 case byInst ce p of
-                   Nothing -> False
-                   Just qs -> all (entail ce ps) qs
+entail ce ps p = p `elem` ps || maybe False allAssumptions (byInst ce p) where
+    allAssumptions = all (entail ce ps)
 
 simplifyM :: [Pred] -> TCM([Pred], Subst)
 simplifyM ps = do
@@ -189,7 +187,8 @@ simplifyM ps = do
                  Nothing -> loop ce (p:rs) ps subst
 
 entailM :: ClassTable -> [Pred] -> Pred -> Maybe Subst
-entailM ce ps p@(IsIn _ _) = if entail ce ps p then Just emptySubst else Nothing -- FIXME
+entailM ce ps (t :~: u) = maybeFromRight (mgu t u)
+-- entailM ce ps p@(IsIn _ _) = if entail ce ps p then Just emptySubst else Nothing -- FIXME
 entailM ce ps p = case elem p ps of
                     True -> Just emptySubst
                     False -> do
@@ -206,7 +205,7 @@ byInstM :: ClassTable -> Pred -> Maybe ([Pred], Subst)
 byInstM ce p@(InCls tvs i as t) = msum [tryInst it | it <- insts ce i] where
     tryInst :: Qual Pred -> Maybe ([Pred], Subst)
     tryInst c@(ps :=> h) = trace (unwords["!> tryInst", str c, "for", str p]) $
-        case mguPred h p of
+        case matchPred h p of
           Left _ -> trace(unwords["!< matchPred", str h, "<~", str p,"FAIL"])Nothing
           Right u -> let tvs = ftv h
                      in trace(unwords["!< matchPred", str h, "<~", str p,"=",str u])
@@ -264,3 +263,6 @@ solve ((l,r):cs) s = do
 
 unifError :: Constraint -> TCM a
 unifError (t1,t2) = throwError $ "Cannot unify "++show t1++" with "++show t2
+
+maybeFromRight :: Either a b -> Maybe b
+maybeFromRight = either (const Nothing) Just

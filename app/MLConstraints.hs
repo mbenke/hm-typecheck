@@ -55,12 +55,14 @@ instance HasTypes t => HasTypes(Qual t) where
   ftv (ps :=> t) = ftv ps `union` ftv t
 
 instance HasTypes Pred where
-  apply s (IsIn i t) = IsIn i (apply s t)
+  -- apply s (IsIn i t) = IsIn i (apply s t)
   apply s (InCls tvs i as t) = InCls tvs i (apply s as) (apply s t)
+  apply s (t :~: u) = apply s t :~: apply s u
 --  apply s (InCls tvs i as t) = InCls tvs i (apply s' as) (apply s' t)
 --      where s' =  expel tvs s
   ftv (IsIn i t) = ftv t
   ftv (InCls tvs i as t) = ftv as `union` ftv t
+  ftv (t :~: u) = ftv (t,u)
 
 instance HasTypes Scheme where
   apply subst (Forall tvs t) = Forall tvs (apply (expel tvs subst) t)
@@ -112,7 +114,7 @@ matchTypes (a:as) (b:bs) = do
   merge sl sr
 
 
-            
+
 {-
    Solving (l:->r) ~ (l':->r') amounts to solving [ l ~ l', r ~ r']:
    s1 <- l ~ l'
@@ -196,4 +198,3 @@ mguPred (InCls _ i as t) (InCls _ i' as' t')
 matchPred (InCls _ i as t) (InCls _ i' as' t')
   | i == i' = matchTypes (t:as) (t':as')
   | otherwise = throwError "classes differ"
-  

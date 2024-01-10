@@ -36,7 +36,7 @@ prog2 :: Prog
 prog2 = [prog|
     mi = newMRef 42;
     x1 = load mi;
-    // x2 = load siExample;
+    x2 = load siExample;
     |]
 
 
