@@ -61,11 +61,14 @@ eqClassInfo = (["eq"],
     list x = TCon "List" [x]
     cEq = "Eq"
 
-refClassInfo = (["load"],
-               [ [] :=> InCls [] "Ref" [int] (stack int)
-               , [b :~:  a] :=> InCls [] "Ref" [b] (memo a)
-               , [b :~: int] :=> InCls [] "Ref" [b] (TCon "SI" [])
-               ])
+refClassInfo =
+  (["load"],
+   [
+     [] :=> InCls [] "Ref" [int] (stack int)  -- inst Ref(int) (Stack Int)
+     -- inst Ref a (Memory a)  becomes
+      , [b :~:  a] :=> InCls [] "Ref" [b] (memo a)  -- (b ~ a) => inst Ref b (Memory a)
+      , [b :~: int] :=> InCls [] "Ref" [b] (TCon "SI" [])
+    ])
   where
     a = TVar "a"
     b = TVar "b"

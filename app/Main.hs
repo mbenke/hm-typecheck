@@ -37,6 +37,7 @@ prog2 = [prog|
     mi = newMRef 42;
     x1 = load mi;
     x2 = load siExample;
+    f3 x = load (newMRef (add x 1))
     |]
 
 
@@ -47,9 +48,9 @@ run = do
   -- checkExpr [expr| \x -> x x |]
   -- checkExpr [expr| add 1 false |]
   -- testCheck [expr| add 2 3 |]
-  checkExpr [expr| let n5 = add 2 3 in n5 |]
-  checkExpr [expr| foldr cons nil |]
-  checkExpr [expr| foldr add 0 |]
+  -- checkExpr [expr| let n5 = add 2 3 in n5 |]
+  -- checkExpr [expr| foldr cons nil |]
+  -- checkExpr [expr| foldr add 0 |]
   writeln "-----------------------------------------------------------------------------"
   checkProg prog1
   writeln "-----------------------------------------------------------------------------"
@@ -85,6 +86,7 @@ checkProg' verbose prog = do
         putStrLn $ (printTree prog)
         let env = tcsEnv state
         let withPrims = False
+        writeln ""
         writeln (showEnv withPrims env)
   when verbose $ do
              let history = reverse (tcsLog state)
