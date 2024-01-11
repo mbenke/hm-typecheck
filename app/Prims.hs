@@ -22,7 +22,7 @@ primVals =
   , ("tail", forAll "a" $ list a :-> list a)
   , ("eq", Forall ["a"] $ [IsIn "Eq" a] :=> a :-> a :-> bool)
   , ("newMRef", forAll "a" $ a :->  memo a)
-  , ("load", Forall ["a", "b"] $ [InCls ["a", "b"] "Ref" [b] a] :=> a :-> b)
+  , ("load", Forall ["a", "b"] $ [InCls "Ref" [b] a] :=> a :-> b)
   , ("siExample", monotype $ TCon "SI" [])
   ] where
   a = TVar "a"
@@ -64,10 +64,10 @@ eqClassInfo = (["eq"],
 refClassInfo =
   (["load"],
    [
-     [] :=> InCls [] "Ref" [int] (stack int)  -- inst Ref(int) (Stack Int)
+     [] :=> InCls "Ref" [int] (stack int)  -- inst Ref(int) (Stack Int)
      -- inst Ref a (Memory a)  becomes
-      , [b :~:  a] :=> InCls [] "Ref" [b] (memo a)  -- (b ~ a) => inst Ref b (Memory a)
-      , [b :~: int] :=> InCls [] "Ref" [b] (TCon "SI" [])
+      , [b :~:  a] :=> InCls "Ref" [b] (memo a)  -- (b ~ a) => inst Ref b (Memory a)
+      , [b :~: int] :=> InCls "Ref" [b] (TCon "SI" [])
     ])
   where
     a = TVar "a"

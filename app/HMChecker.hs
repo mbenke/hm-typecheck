@@ -146,7 +146,7 @@ byInst ce p@(IsIn i t)= msum [tryInst it | it <- insts ce i] where
     tryInst(ps :=> h) = case matchPred h p of
                           Left _ -> Nothing
                           Right u -> Just (apply u ps)
-byInst ce p@(InCls tvs i as t)= msum [tryInst it | it <- insts ce i] where
+byInst ce p@(InCls i as t)= msum [tryInst it | it <- insts ce i] where
     tryInst :: Qual Pred -> Maybe [Pred]
     tryInst(ps :=> h) = case mguPred h p of
                           Left _ -> Nothing
@@ -188,7 +188,6 @@ simplifyM ps = do
 
 entailM :: ClassTable -> [Pred] -> Pred -> Maybe Subst
 entailM ce ps (t :~: u) = maybeFromRight (mgu t u)
--- entailM ce ps p@(IsIn _ _) = if entail ce ps p then Just emptySubst else Nothing -- FIXME
 entailM ce ps p = case elem p ps of
                     True -> Just emptySubst
                     False -> do
@@ -202,7 +201,7 @@ entailM ce ps p = case elem p ps of
                         _ -> error("Unimplemented - Complex instance context " ++ show (qs, u))
 
 byInstM :: ClassTable -> Pred -> Maybe ([Pred], Subst)
-byInstM ce p@(InCls tvs i as t) = msum [tryInst it | it <- insts ce i] where
+byInstM ce p@(InCls i as t) = msum [tryInst it | it <- insts ce i] where
     tryInst :: Qual Pred -> Maybe ([Pred], Subst)
     tryInst c@(ps :=> h) = trace (unwords["!> tryInst", str c, "for", str p]) $
         case matchPred h p of
@@ -211,7 +210,6 @@ byInstM ce p@(InCls tvs i as t) = msum [tryInst it | it <- insts ce i] where
                      in trace(unwords["!< matchPred", str h, "<~", str p,"=",str u])
                         Just (map (apply u) ps, expel tvs u)
 
--- solvePred ce ps p = Nothing
 
 
 

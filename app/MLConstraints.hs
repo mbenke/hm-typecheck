@@ -55,13 +55,9 @@ instance HasTypes t => HasTypes(Qual t) where
   ftv (ps :=> t) = ftv ps `union` ftv t
 
 instance HasTypes Pred where
-  -- apply s (IsIn i t) = IsIn i (apply s t)
-  apply s (InCls tvs i as t) = InCls tvs i (apply s as) (apply s t)
+  apply s (InCls i as t) = InCls i (apply s as) (apply s t)
   apply s (t :~: u) = apply s t :~: apply s u
---  apply s (InCls tvs i as t) = InCls tvs i (apply s' as) (apply s' t)
---      where s' =  expel tvs s
-  ftv (IsIn i t) = ftv t
-  ftv (InCls tvs i as t) = ftv as `union` ftv t
+  ftv (InCls i as t) = ftv (as, t)
   ftv (t :~: u) = ftv (t,u)
 
 instance HasTypes Scheme where
@@ -191,10 +187,10 @@ onPred m (IsIn i t) (IsIn i' t')
   | otherwise = throwError "classes differ"
 
 mguPred, matchPred :: Pred -> Pred -> Either String Subst
-mguPred (InCls _ i as t) (InCls _ i' as' t')
+mguPred (InCls i as t) (InCls i' as' t')
   | i == i' = unifyTypes (t:as) (t':as')
   | otherwise = throwError "classes differ"
 
-matchPred (InCls _ i as t) (InCls _ i' as' t')
+matchPred (InCls i as t) (InCls i' as' t')
   | i == i' = matchTypes (t:as) (t':as')
   | otherwise = throwError "classes differ"
