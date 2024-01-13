@@ -3,6 +3,8 @@ module TCM where
 import Control.Monad.Except
 import Control.Monad.State
 import Control.Monad.Identity
+
+import Data.List(foldl')
 import qualified Data.Map as Map
 import Data.Maybe(isJust)
 
@@ -10,7 +12,7 @@ import NameSupply
 import MLConstraints
 import MLExpr
 
-import Prims(primVals, primTypes, primClasses)
+import Prims(primVals, primTypes, primClasses, eqInstances, refInstances)
 import MLTypes
 
 
@@ -20,6 +22,8 @@ type Env = Table Scheme
 type TypeTable = Table Int    -- just arity
 type ClassTable = Table ClassInfo
 type ClassInfo = ([Method], [Inst])
+type InstTable = Table [Inst]
+
 type Method = Name
 type Inst = Qual Pred
 
@@ -29,22 +33,28 @@ data TcState = TcState {
  tcsEnv :: Env,        -- value env
  tcsTT :: TypeTable,
  tcsCT :: ClassTable,
--- tcsIT :: InstTable
+ tcsIT :: InstTable,
  tcsNS :: NS,
  tcsSubst :: Subst,
  constraints :: Constraints
 }
 
-initState = TcState
+initState = init TcState
   { tcsLogEnabled = False
   , tcsLog = []
   , tcsEnv = primEnv
   , tcsTT = primTT
   , tcsCT = primCT
+  , tcsIT = Map.empty
   , tcsNS = namePool
   , tcsSubst = emptySubst
   , constraints = []
-  }
+  } where
+    addInstances :: [Inst] -> TcState -> TcState
+    addInstances is st = foldr addInstInfo st is
+    init :: TcState -> TcState
+    init = addInstances eqInstances
+          . addInstances refInstances
 
 class ToStr a where
   str :: a -> String
@@ -159,6 +169,16 @@ addMonoBind n t = Map.insert n s where
 addPolyBind :: Name -> Scheme -> Env -> Env
 addPolyBind n s = Map.insert n s
 
+addClassInfo :: Name -> ClassInfo -> TcState -> TcState
+addClassInfo n ci st = st { tcsCT = ext (tcsCT st) } where
+    ext = Map.insert n ci
+
+addInstInfo :: Inst -> TcState -> TcState
+addInstInfo inst@(ctx :=> InCls name _ _) st = st { tcsIT = ext (tcsIT st) } where
+    ext = Map.insertWith (++) name [inst]
+
+-- addInstsFromClassInfo :: (Name, ClassInfo) -> TcState -> TcState
+
 runTcS t = runState t initState
 
 primEnv :: Env
@@ -169,6 +189,10 @@ primTT = Map.fromList primTypes
 
 primCT = Map.fromList primClasses
 
+addPrimClasses :: TcState -> TcState
+addPrimClasses st = foldr addC st primClasses where
+    addC :: (Name, ClassInfo) -> TcState -> TcState
+    addC  = uncurry addClassInfo
 
 -- runTCM :: TCM a -> (Either String a, TcState)
 runTCM = runTcS . runExceptT

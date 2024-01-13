@@ -128,18 +128,17 @@ tiProg (Prog decls) = mapM_ tiDecl decls
 
 ---- Classes
 
-insts :: ClassTable -> Name -> [Inst]
-insts ce n = case Map.lookup n ce of
-               Just (ms, is) -> is
-               Nothing -> error ("instance " ++ n ++ " not found")
+insts :: InstTable -> Name -> [Inst]
+insts ce n = Map.findWithDefault (error ("instance " ++ n ++ " not found")) n ce
 
 getInsts :: Name -> TCM [Inst]
 getInsts n = do
-  ce <- gets tcsCT
+  ce <- gets tcsIT
   case Map.lookup n ce of
-    Just (ms, is) -> pure is
+    Just is -> pure is
     Nothing -> throwError$ "unknown class: " ++  n
 
+{-
 byInst :: ClassTable -> Pred -> Maybe [Pred]
 byInst ce p@(IsIn i t)= msum [tryInst it | it <- insts ce i] where
     tryInst :: Qual Pred -> Maybe [Pred]
@@ -151,11 +150,13 @@ byInst ce p@(InCls i as t)= msum [tryInst it | it <- insts ce i] where
     tryInst(ps :=> h) = case mguPred h p of
                           Left _ -> Nothing
                           Right u -> Just (map (apply u) ps)
+-}
 
 nonTrivial :: [Tyvar] -> Pred -> Bool
 nonTrivial tvs (IsIn _ (TVar a)) | not (elem a tvs) = False
 nonTrivial tvs _ = True
 
+{-
 simplify :: ClassTable -> [Pred] -> TCM [Pred]
 simplify ce ps = do
   ce <- gets tcsCT
@@ -167,14 +168,14 @@ simplify ce ps = do
 entail :: ClassTable -> [Pred] -> Pred -> Bool
 entail ce ps p = p `elem` ps || maybe False allAssumptions (byInst ce p) where
     allAssumptions = all (entail ce ps)
-
+-}
 simplifyM :: [Pred] -> TCM([Pred], Subst)
 simplifyM ps = do
   setLogging (length ps > 0)
-  ce <- gets tcsCT
+  ce <- gets tcsIT
   info ["> simplifyM ", str ps]
   loop ce [] ps emptySubst where
-    loop :: ClassTable -> [Pred] -> [Pred] -> Subst -> TCM([Pred], Subst)
+    loop :: InstTable -> [Pred] -> [Pred] -> Subst -> TCM([Pred], Subst)
     loop ce rs [] subst = do
                  info ["< simplifyM ", str ps, " = ", str (rs,subst)]
                  pure (rs, subst)
@@ -186,7 +187,7 @@ simplifyM ps = do
                              loop ce rs ps (phi <> subst)
                  Nothing -> loop ce (p:rs) ps subst
 
-entailM :: ClassTable -> [Pred] -> Pred -> Maybe Subst
+entailM :: InstTable -> [Pred] -> Pred -> Maybe Subst
 entailM ce ps (t :~: u) = maybeFromRight (mgu t u)
 entailM ce ps p = case elem p ps of
                     True -> Just emptySubst
@@ -200,7 +201,7 @@ entailM ce ps p = case elem p ps of
 
                         _ -> error("Unimplemented - Complex instance context " ++ show (qs, u))
 
-byInstM :: ClassTable -> Pred -> Maybe ([Pred], Subst)
+byInstM :: InstTable -> Pred -> Maybe ([Pred], Subst)
 byInstM ce p@(InCls i as t) = msum [tryInst it | it <- insts ce i] where
     tryInst :: Qual Pred -> Maybe ([Pred], Subst)
     tryInst c@(ps :=> h) = trace (unwords["!> tryInst", str c, "for", str p]) $

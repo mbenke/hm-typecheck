@@ -30,7 +30,7 @@ primVals =
   bool2 = monotype $ bool :-> bool :-> bool
   list x = TCon "List" [x]
   stack x = TCon "Stack" [x]
-  memo x = TCon "Memory" [x]   
+  memo x = TCon "Memory" [x]
 
 primTypes :: [(Name, Int)]
 primTypes =
@@ -45,32 +45,34 @@ primTypes =
   , ("SI", 0)
   ]
 
+type Inst = Qual Pred
+type ClassInfo = ([String], [Inst])
+
 primClasses =
   [ ("Eq", eqClassInfo)
   , ("Ref", refClassInfo)
   ]
 
-eqClassInfo = (["eq"],
-               [ [] :=> IsIn "Eq" int
+eqClassInfo :: ClassInfo
+eqClassInfo = (["eq"], [])
+eqInstances = [ [] :=> IsIn "Eq" int
                , [] :=> IsIn "Eq" bool
                , [IsIn cEq a] :=> IsIn cEq (list a)
-               ])
-  where
-    a = TVar "a"
-    b = TVar "b"
-    list x = TCon "List" [x]
-    cEq = "Eq"
+              ] where
+  a = TVar "a"
+  b = TVar "b"
+  list x = TCon "List" [x]
+  cEq = "Eq"
 
-refClassInfo =
-  (["load"],
-   [
-     [] :=> InCls "Ref" [int] (stack int)  -- inst Ref(int) (Stack Int)
-     -- inst Ref a (Memory a)  becomes
-      , [b :~:  a] :=> InCls "Ref" [b] (memo a)  -- (b ~ a) => inst Ref b (Memory a)
-      , [b :~: int] :=> InCls "Ref" [b] (TCon "SI" [])
-    ])
+refClassInfo = (["load"], [])
+refInstances =
+  [ [] :=> InCls "Ref" [int] (stack int)  -- inst Ref(int) (Stack Int)
+    -- inst Ref a (Memory a)  becomes
+  , [b :~:  a] :=> InCls "Ref" [b] (memo a)  -- (b ~ a) => inst Ref b (Memory a)
+  , [b :~: int] :=> InCls "Ref" [b] (TCon "SI" [])
+  ]
   where
     a = TVar "a"
     b = TVar "b"
     stack x = TCon "Stack" [x]
-    memo x = TCon "Memory" [x]   
+    memo x = TCon "Memory" [x]
