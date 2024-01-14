@@ -24,6 +24,8 @@ decl1 :: Decl
 decl1 = [decl| id = \x -> x |]
 
 prog1 = [prog|
+     instance Eq Int;
+     instance Eq a => Eq list[a];
      len = foldr (\ c n -> add 1 n) 0;
      sum = foldr add 0;
      elem x xs = foldr (\y r -> or (eq x y) r) false xs;
@@ -34,6 +36,9 @@ prog1 = [prog|
 
 prog2 :: Prog
 prog2 = [prog|
+    instance Ref[Int] (Stack[Int]);
+    instance Ref[Int] SI;
+    instance Ref[a] Memory[a];
     mi = newMRef 42;
     x1 = load mi;
     x2 = load siExample;

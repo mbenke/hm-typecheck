@@ -10,6 +10,7 @@ import Language.LBNF.Compiletime
 import Language.LBNF.Runtime(printTree)
 import Language.LBNF(lbnf, bnfc)
 
+
 bnfc [lbnf|
 Prog . Prog ::= [Decl];
 ELam . Expr ::= "\\" [Arg] "->" Expr ;
@@ -25,13 +26,18 @@ separator Arg "";
 
 ValDecl. Decl ::= Ident "::" CType;
 ValBind. Decl ::= Ident [Arg] "=" Expr;
-
+I0Qual . Decl ::= "instance" CPred;
+I1Qual . Decl ::= "instance" CPred "=>" CPred;
 separator Decl ";";
+
+
+PSingle . CPred ::= Ident CType ;
+PMulti  . CPred ::= Ident "[" [CType] "]" CType;
 
 -- define tarr t1 t2 = TCon (Ident "->") [t1,t2] ;
 
-CTArr . CType ::= CType "->" CType1;
-CTCon . CType1 ::= Ident "(" [CType] ")";
+CTArr . CType ::= CType1 "->" CType1;
+CTCon . CType1 ::= Ident "[" [CType] "]";
 CTVar . CType2 ::= Ident;
 coercions CType 2;
 

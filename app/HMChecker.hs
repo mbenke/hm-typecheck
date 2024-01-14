@@ -109,19 +109,18 @@ wrapError m ctxt = catchError m handler where
         throwError (decorate msg)
     decorate msg = msg ++ "\n  - in " ++ str ctxt
 
-tiDecl :: Decl -> TCM Scheme
+tiDecl :: Decl -> TCM ()
 tiDecl (ValDecl i ct) = do
   let t = desugarT ct
   let tvs = ftv t
   let s = Forall tvs ([] :=> t)
   extEnv (name i) s
-  pure s
 tiDecl (ValBind i as e) = do
   let n = name i
   s <- tiBind n as e `wrapError` n
   extEnv n s
-  pure s
-
+tiDecl (I0Qual p) = pure ()    -- FIXME
+tiDecl (I1Qual q p) = pure ()  -- FIXME
 
 tiProg :: Prog -> TCM ()
 tiProg (Prog decls) = mapM_ tiDecl decls
