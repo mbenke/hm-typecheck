@@ -1,9 +1,9 @@
 {-# LANGUAGE FlexibleContexts #-}
-module MLConstraints where
+module Constraints where
 import Control.Monad.Error.Class
 import Data.List(union, intersect, nub, (\\), deleteBy, intercalate)
 import Text.Show(showListWith)
-import MLTypes
+import Types
 
 -- Using ideas from "Typing Haskell in Haskell" by Mark P. Jones
 

@@ -1,5 +1,5 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell #-}
-module MLExpr(
+module Syntax(
   Prog(..), Expr(..), Arg(..), Decl(..), CType(..), Name,
   name, expr, prog, decl, showExpr,
   BNFC.Print(..),

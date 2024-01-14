@@ -1,8 +1,8 @@
-module MLTypes where
+module Types where
 import Data.List(intercalate)
 import Text.Show
 
-import MLExpr
+import Syntax
 
 infixr 5 :->
 infix 2 :=>

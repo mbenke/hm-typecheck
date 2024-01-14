@@ -9,11 +9,11 @@ import qualified Data.Map as Map
 import Data.Maybe(isJust)
 
 import NameSupply
-import MLConstraints
-import MLExpr
+import Constraints
+import Syntax
 
 import Prims(primVals, primTypes, primClasses, eqInstances, refInstances)
-import MLTypes
+import Types
 
 
 type Table a = Map.Map Name a

@@ -1,7 +1,7 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell #-}
-import MLExpr
-import MLTypes
-import HMChecker(typeCheck, verboseCheck, tiDecl, tiProg)
+import Syntax
+import Types
+import Checker(typeCheck, verboseCheck, tiDecl, tiProg)
 import TCM
 import Control.Exception
 import Control.Monad

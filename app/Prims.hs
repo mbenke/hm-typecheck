@@ -1,6 +1,6 @@
 module Prims where
-import MLTypes
-import MLExpr
+import Types
+import Syntax
 
 primVals :: [(Name, Scheme)]
 primVals =

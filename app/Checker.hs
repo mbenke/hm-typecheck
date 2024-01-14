@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
-module HMChecker where
+module Checker where
 -- import Prelude hiding(lookup)
 import Data.List((\\))
 -- import Data.Maybe(fromJust)
@@ -7,11 +7,11 @@ import Control.Monad.Except
 import Control.Monad.State
 import qualified Data.Map as Map
 
-import MLExpr
+import Syntax
 -- import MLSyntax
-import MLTypes
+import Types
 import NameSupply
-import MLConstraints
+import Constraints
 import TCM
 import Debug
 

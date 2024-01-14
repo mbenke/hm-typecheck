@@ -27,7 +27,7 @@ executable hm
     
     -- Modules included in this executable, other than Main.
     other-modules:
-      MLExpr HMChecker MLConstraints MLSyntax MLTypes NameSupply, Prims, TCM, Debug
+      Syntax Checker Constraints MLSyntax Types NameSupply, Prims, TCM, Debug
     
     -- LANGUAGE extensions used by modules in this package.
     other-extensions: TemplateHaskell, QuasiQuotes, PatternSynonyms
@@ -46,7 +46,7 @@ executable hm
 --     type:       exitcode-stdio-1.0
 --     main-is:          TestSyntax.hs
 --     other-modules:
---       MLExpr MLChecker MLConstraints MLSyntax MLTypes NameSupply,
+--       Syntax MLChecker Constraints MLSyntax Types NameSupply,
 --       TestExpr
     
 --     build-depends:    base ^>=4.16.4.0,
