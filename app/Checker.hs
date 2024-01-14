@@ -1,14 +1,13 @@
 {-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
 module Checker where
--- import Prelude hiding(lookup)
 import Data.List((\\))
--- import Data.Maybe(fromJust)
 import Control.Monad.Except
 import Control.Monad.State
+import Data.Either(isRight)
+import Data.Maybe(isJust)
 import qualified Data.Map as Map
 
 import Syntax
--- import MLSyntax
 import Types
 import NameSupply
 import Constraints
@@ -39,10 +38,8 @@ tiExpr e@(EApp e1 e2) = do
   (qs, t2) <- tiExpr e2
   freshname <- tcmDeplete
   let tr = TVar freshname
-  -- info  ["unify ", show t1, " ~ ", show (t2 :-> tr)]
   unify t1 (t2 :-> tr) `wrapError` e
   s <- getSubst
-  -- info ["getSubst: ", show s]
   let tr' = apply s tr
   let preds = apply s (ps ++ qs)
   info ["tiExpr ", str e, " :: ", str tr' ]
@@ -115,17 +112,43 @@ tiDecl (ValDecl i ct) = do
   let tvs = ftv t
   let s = Forall tvs ([] :=> t)
   extEnv (name i) s
+
 tiDecl (ValBind i as e) = do
   let n = name i
   s <- tiBind n as e `wrapError` n
   extEnv n s
-tiDecl (I0Qual p) = pure ()    -- FIXME
-tiDecl (I1Qual q p) = pure ()  -- FIXME
 
+tiDecl (I0Qual p) = tiInstance $ desugarQ [] p
+tiDecl (I1Qual q p) = tiInstance $ desugarQ [q] p
+
+tiInstance :: Qual Pred -> TCM ()
+tiInstance inst@(q :=> p@(InCls c as t)) = do
+  ois <- getInsts c
+  checkOverlap t ois
+  let anf = anfInstance inst
+  modify (addInstInfo anf)
+  where
+    checkOverlap :: Type -> [Inst] -> TCM ()
+    checkOverlap t [] = pure ()
+    checkOverlap t (oi@(_ :=> InCls _ _ u):is) = case mgu t u of
+      Right s -> throwError
+                 (unwords ["instance",str inst,"overlaps", str oi])
+      Left _ -> checkOverlap t is
+    matchesType t (_ :=> InCls _ _ u) = match t u
 tiProg :: Prog -> TCM ()
 tiProg (Prog decls) = mapM_ tiDecl decls
 
 ---- Classes
+
+-- Administraive Normal Form of an MPTC instance:
+-- transform `instance C [as] t` into `[bs ~ as] => C bs t`
+anfInstance :: Inst -> Inst
+anfInstance inst@(q :=> p@(InCls c [] t)) = inst
+anfInstance inst@(q :=> p@(InCls c as t)) = q ++ q' :=> InCls c bs t  where
+    q' = zipWith (:~:) bs as
+    bs = map TVar $ take (length as) freshNames
+    tvs = ftv inst
+    freshNames = filter (not . flip elem tvs) namePool
 
 insts :: InstTable -> Name -> [Inst]
 insts ce n = Map.findWithDefault (error ("instance " ++ n ++ " not found")) n ce
@@ -205,10 +228,9 @@ byInstM ce p@(InCls i as t) = msum [tryInst it | it <- insts ce i] where
     tryInst :: Qual Pred -> Maybe ([Pred], Subst)
     tryInst c@(ps :=> h) = trace (unwords["!> tryInst", str c, "for", str p]) $
         case matchPred h p of
-          Left _ -> trace(unwords["!< matchPred", str h, "<~", str p,"FAIL"])Nothing
+          Left _ -> Nothing
           Right u -> let tvs = ftv h
-                     in trace(unwords["!< matchPred", str h, "<~", str p,"=",str u])
-                        Just (map (apply u) ps, expel tvs u)
+                     in  Just (map (apply u) ps, expel tvs u)
 
 
 

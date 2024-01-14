@@ -25,7 +25,6 @@ type ClassInfo = ([Method], [Inst])
 type InstTable = Table [Inst]
 
 type Method = Name
-type Inst = Qual Pred
 
 data TcState = TcState {
  tcsLogEnabled :: Bool,
@@ -44,7 +43,7 @@ initState = init TcState
   , tcsLog = []
   , tcsEnv = primEnv
   , tcsTT = primTT
-  , tcsCT = primCT
+  , tcsCT = Map.empty
   , tcsIT = Map.empty
   , tcsNS = namePool
   , tcsSubst = emptySubst
@@ -53,9 +52,7 @@ initState = init TcState
     addInstances :: [Inst] -> TcState -> TcState
     addInstances is st = foldr addInstInfo st is
     init :: TcState -> TcState
-    init = addInstances eqInstances
-          . addInstances refInstances
-
+    init = addPrimClasses
 class ToStr a where
   str :: a -> String
 
@@ -170,8 +167,9 @@ addPolyBind :: Name -> Scheme -> Env -> Env
 addPolyBind n s = Map.insert n s
 
 addClassInfo :: Name -> ClassInfo -> TcState -> TcState
-addClassInfo n ci st = st { tcsCT = ext (tcsCT st) } where
-    ext = Map.insert n ci
+addClassInfo n ci st = st { tcsCT = extCT (tcsCT st), tcsIT = extIT (tcsIT st) } where
+    extCT = Map.insert n ci
+    extIT = Map.insert n []
 
 addInstInfo :: Inst -> TcState -> TcState
 addInstInfo inst@(ctx :=> InCls name _ _) st = st { tcsIT = ext (tcsIT st) } where
