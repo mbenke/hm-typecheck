@@ -45,7 +45,6 @@ primTypes =
   , ("SI", 0)
   ]
 
-type Inst = Qual Pred
 type ClassInfo = ([String], [Inst])
 
 primClasses =

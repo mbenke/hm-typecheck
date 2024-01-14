@@ -25,7 +25,7 @@ decl1 = [decl| id = \x -> x |]
 
 prog1 = [prog|
      instance Eq Int;
-     instance Eq a => Eq list[a];
+     instance Eq a => Eq List[a];
      len = foldr (\ c n -> add 1 n) 0;
      sum = foldr add 0;
      elem x xs = foldr (\y r -> or (eq x y) r) false xs;

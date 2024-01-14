@@ -1,6 +1,6 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell #-}
 module Syntax(
-  Prog(..), Expr(..), Arg(..), Decl(..), CType(..), Name,
+  Prog(..), Expr(..), Arg(..), Decl(..), CType(..), CPred(..), Name,
   name, expr, prog, decl, showExpr,
   BNFC.Print(..),
   module Language.LBNF.Runtime
@@ -12,33 +12,38 @@ import Language.LBNF(lbnf, bnfc)
 
 
 bnfc [lbnf|
+token UIdent (upper (letter | digit | '_')*) ;
+token LIdent (lower (letter | digit | '_')*) ;
+
 Prog . Prog ::= [Decl];
 ELam . Expr ::= "\\" [Arg] "->" Expr ;
-ELet . Expr ::= "let" Ident "=" Expr "in" Expr;
+ELet . Expr ::= "let" LIdent "=" Expr "in" Expr;
 ERec . Expr ::= "letrec" [Decl] "in" Expr;
 EApp . Expr1 ::= Expr1 Expr2 ;
-EVar . Expr2 ::= Ident;
+EVar . Expr2 ::= LIdent;
 EInt . Expr2 ::= Integer;
 coercions Expr 2;
 
-UArg . Arg ::= Ident;
+UArg . Arg ::= LIdent;
 separator Arg "";
 
-ValDecl. Decl ::= Ident "::" CType;
-ValBind. Decl ::= Ident [Arg] "=" Expr;
+TypeDecl. Decl ::= "type" CType;
+ValDecl. Decl ::= LIdent "::" CType;
+ValBind. Decl ::= LIdent [Arg] "=" Expr;
 I0Qual . Decl ::= "instance" CPred;
 I1Qual . Decl ::= "instance" CPred "=>" CPred;
 separator Decl ";";
 
 
-PSingle . CPred ::= Ident CType ;
-PMulti  . CPred ::= Ident "[" [CType] "]" CType;
+PSingle . CPred ::= UIdent CType ;
+PMulti  . CPred ::= UIdent "[" [CType] "]" CType;
 
 -- define tarr t1 t2 = TCon (Ident "->") [t1,t2] ;
 
 CTArr . CType ::= CType1 "->" CType1;
-CTCon . CType1 ::= Ident "[" [CType] "]";
-CTVar . CType2 ::= Ident;
+CTCon . CType1 ::= UIdent "[" [CType] "]";
+CTCon0 . CType2 ::= UIdent;
+CTVar . CType2 ::= LIdent;
 coercions CType 2;
 
 separator CType ",";
@@ -48,8 +53,18 @@ comment "/*" "*/" ;
 |]
 
 type Name = String
-name :: Ident -> Name
-name (Ident s) = s
+
+class HasName i where
+    name :: i -> Name
+
+-- instance HasName Ident where
+--     name (Ident s) = s
+
+instance HasName UIdent where
+    name (UIdent s) = s
+
+instance HasName LIdent where
+    name (LIdent s) = s
 
 showExpr :: Expr -> String
 showExpr = printTree
