@@ -50,7 +50,7 @@ instance Show Type where
           where arr_prec = 5
   showsPrec d (TCon n []) = showString n
   showsPrec d (TCon n ts) = showParen (d > 10) $
-                            showString n . showParen True (showString r) where
+                            showString n .  ('[':) . showString r . (']':) where
     args = map show ts
     r = intercalate ", " args
 
