@@ -20,6 +20,9 @@ primVals =
   , ("foldr", forAll "a b" $ (a :-> b :-> b) :-> b :-> list a :-> b)
   , ("head", forAll "a" $ list a :-> a)
   , ("tail", forAll "a" $ list a :-> list a)
+  , ("pair", forAll "a b" $ a :-> b :-> pair a b)
+  , ("fst", forAll "a" $ pair a b :-> a)
+  , ("snd", forAll "a" $ pair a b :-> b)
   , ("eq", Forall ["a"] $ [IsIn "Eq" a] :=> a :-> a :-> bool)
   , ("newMRef", forAll "a" $ a :->  memo a)
   , ("load", Forall ["a", "b"] $ [InCls "Ref" [b] a] :=> a :-> b)
@@ -31,6 +34,7 @@ primVals =
   list x = TCon "List" [x]
   stack x = TCon "Stack" [x]
   memo x = TCon "Memory" [x]
+  pair x y = TCon "Pair" [x, y]
 
 primTypes :: [(Name, Int)]
 primTypes =
@@ -40,6 +44,7 @@ primTypes =
   , ("List", 1)
   , ("Maybe", 1)
   , ("Either", 2)
+  , ("Pair", 2)
   , ("Memory", 1)
   , ("Stack", 1)
   , ("SI", 0)

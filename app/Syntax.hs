@@ -32,11 +32,13 @@ ValDecl. Decl ::= LIdent "::" CType;
 ValBind. Decl ::= LIdent [Arg] "=" Expr;
 I0Qual . Decl ::= "instance" CPred;
 I1Qual . Decl ::= "instance" CPred "=>" CPred;
+INQual . Decl ::= "instance" "(" [CPred] ")" "=>" CPred;
 separator Decl ";";
 
 
 PSingle . CPred ::= UIdent CType ;
 PMulti  . CPred ::= UIdent "[" [CType] "]" CType;
+separator CPred ",";
 
 -- define tarr t1 t2 = TCon (Ident "->") [t1,t2] ;
 

@@ -120,6 +120,7 @@ tiDecl (ValBind i as e) = do
 
 tiDecl (I0Qual p) = tiInstance $ desugarQ [] p
 tiDecl (I1Qual q p) = tiInstance $ desugarQ [q] p
+tiDecl (INQual qs p) = tiInstance $ desugarQ qs p
 
 tiInstance :: Qual Pred -> TCM ()
 tiInstance inst@(q :=> p@(InCls c as t)) = do
@@ -215,13 +216,13 @@ entailM ce ps p = case elem p ps of
                     True -> Just emptySubst
                     False -> do
                       (qs, u) <- byInstM ce p
-                      case qs of
-                        [] -> Just u
-                        [q] -> do
-                                u' <- entailM ce ps (apply u q)
-                                pure (u <> u')
+                      go qs u where
+                      go :: [Pred] -> Subst -> Maybe Subst
+                      go []     u = pure u
+                      go (q:qs) u  = do
+                                   u' <- entailM ce ps (apply u q)
+                                   go qs (u <> u')
 
-                        _ -> error("Unimplemented - Complex instance context " ++ show (qs, u))
 
 byInstM :: InstTable -> Pred -> Maybe ([Pred], Subst)
 byInstM ce p@(InCls i as t) = msum [tryInst it | it <- insts ce i] where
