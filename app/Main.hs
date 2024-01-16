@@ -20,14 +20,11 @@ expK = [expr| \x -> \y -> x |]
 expSkk :: Expr
 expSkk = vap expS [expK, expK]
 
-decl1 :: Decl
-decl1 = [decl| id = \x -> x |]
-
 prog1 = [prog|
-     instance Eq Int;
-     instance Eq Bool;
-     instance Eq a => Eq List[a];
-     instance (Eq a, Eq b) => Eq Pair[a,b];
+     instance Int : Eq;
+     instance Bool : Eq;
+     instance a : Eq => List[a] : Eq;
+     instance (a:Eq, b:Eq) => Pair[a,b] : Eq;
      len = foldr (\ c n -> add 1 n) 0;
      sum = foldr add 0;
      elem x xs = foldr (\y r -> or (eq x y) r) false xs;
@@ -42,21 +39,20 @@ prog1 = [prog|
 
 prog2 :: Prog
 prog2 = [prog|
-    instance Ref[Int] (Stack[Int]);
-    instance Ref[Int] SI;
-    instance Ref[a] Memory[a];
+    instance Stack[Int] : Ref[Int];
+    instance SI : Ref[Int];
+    instance Memory[a]: Ref[a] ;
     mi = newMRef 42;
     x1 = load mi;
     x2 = load siExample;
     f3 x = load (newMRef (add x 1))
     |]
 
-
 prog3 = [prog|
-     instance Eq Int;
-     instance Eq Bool;
-     instance Eq a => Eq List[a];
-     instance (Eq a, Eq b) => Eq Pair[a,b];
+     instance Int : Eq;
+     instance Bool : Eq;
+     instance a : Eq => List[a] : Eq;
+     instance (a:Eq, b:Eq) => Pair[a,b] : Eq;
      elem x xs = foldr (\y r -> or (eq x y) r) false xs;
      f1 = elem 1 nil;
      f2 x xs = or (eq x (head xs)) (eq (tail xs) nil);
@@ -67,6 +63,7 @@ prog3 = [prog|
      f6 x ys = elem (pair 1 x) ys;
      f7 = f6 false nil;
     |]
+
 run = do
   checkExpr expS
   checkExpr expSkk
@@ -78,7 +75,7 @@ run = do
   -- checkExpr [expr| foldr cons nil |]
   -- checkExpr [expr| foldr add 0 |]
   writeln "-----------------------------------------------------------------------------"
-  -- checkProg prog1
+  checkProg prog1
   writeln "-----------------------------------------------------------------------------"
   checkProg prog2
   writeln "-----------------------------------------------------------------------------"

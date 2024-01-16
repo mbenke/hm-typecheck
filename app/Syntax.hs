@@ -36,8 +36,8 @@ INQual . Decl ::= "instance" "(" [CPred] ")" "=>" CPred;
 separator Decl ";";
 
 
-PSingle . CPred ::= UIdent CType ;
-PMulti  . CPred ::= UIdent "[" [CType] "]" CType;
+PSingle . CPred ::= CType ":" UIdent ;
+PMulti  . CPred ::= CType ":" UIdent "[" [CType] "]" ;
 separator CPred ",";
 
 -- define tarr t1 t2 = TCon (Ident "->") [t1,t2] ;
