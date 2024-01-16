@@ -52,6 +52,21 @@ prog2 = [prog|
     |]
 
 
+prog3 = [prog|
+     instance Eq Int;
+     instance Eq Bool;
+     instance Eq a => Eq List[a];
+     instance (Eq a, Eq b) => Eq Pair[a,b];
+     elem x xs = foldr (\y r -> or (eq x y) r) false xs;
+     f1 = elem 1 nil;
+     f2 x xs = or (eq x (head xs)) (eq (tail xs) nil);
+     f3 x xs = or (elem x xs) (eq (tail xs) nil);
+     pair12 = pair 1 2;
+     f4 = elem pair12 nil;
+     f5 x  = elem (pair 1 x) nil;
+     f6 x ys = elem (pair 1 x) ys;
+     f7 = f6 false nil;
+    |]
 run = do
   checkExpr expS
   checkExpr expSkk
@@ -63,10 +78,11 @@ run = do
   -- checkExpr [expr| foldr cons nil |]
   -- checkExpr [expr| foldr add 0 |]
   writeln "-----------------------------------------------------------------------------"
-  checkProg prog1
+  -- checkProg prog1
   writeln "-----------------------------------------------------------------------------"
   checkProg prog2
   writeln "-----------------------------------------------------------------------------"
+  checkProg prog3
   -- writeln "Error example:"
   -- checkProg [prog| sum = foldr add 0; bad = sum false  |]
 
