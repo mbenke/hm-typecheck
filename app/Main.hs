@@ -35,17 +35,22 @@ prog1 = [prog|
      f4 = elem pair12 nil;
      f5 x  = elem (pair 1 x) nil;
      f6 x ys = elem (pair 1 x) ys;
+     f7 = f6 false nil;
     |]
 
 prog2 :: Prog
 prog2 = [prog|
+    // class ref : Ref[deref] { load : ref -> deref }
     instance Stack[Int] : Ref[Int];
     instance SI : Ref[Int];
     instance Memory[a]: Ref[a] ;
+    instance (ra:Ref[a], rb:Ref[b]) => Pair[ra,rb] : Ref[Pair[a,b]];
     mi = newMRef 42;
     x1 = load mi;
     x2 = load siExample;
-    f3 x = load (newMRef (add x 1))
+    f3 x = load (newMRef (add x 1));
+    x4 = pair mi siExample;
+    x5 = load x4;
     |]
 
 prog3 = [prog|
@@ -79,7 +84,7 @@ run = do
   writeln "-----------------------------------------------------------------------------"
   checkProg prog2
   writeln "-----------------------------------------------------------------------------"
-  checkProg prog3
+  -- checkProg prog3
   -- writeln "Error example:"
   -- checkProg [prog| sum = foldr add 0; bad = sum false  |]
 
