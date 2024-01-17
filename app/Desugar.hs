@@ -17,6 +17,11 @@ instance Desugar QPred (Qual Pred) where
   desugar (I1Qual q p) = desugarQ [q] p
   desugar (INQual qs p) = desugarQ qs p
 
+instance Desugar QType (Qual Type) where
+  desugar (T0Qual p) = desugarQ [] p
+  desugar (T1Qual q p) = desugarQ [q] p
+  desugar (TNQual qs p) = desugarQ qs p
+
 desugarT :: CType -> Type
 desugarT (CTVar i) = TVar (name i)
 desugarT (CTArr t u) = desugarT t :-> desugarT u
@@ -27,5 +32,6 @@ desugarP :: CPred -> Pred
 desugarP (PSingle ct i) = InCls (name i) [] (desugarT ct)
 desugarP (PMulti  ct i cts) = InCls (name i) (map desugarT cts) (desugarT ct)
 
-desugarQ :: [CPred] -> CPred -> Qual Pred
-desugarQ cps cp = map desugarP cps :=> desugarP cp
+-- desugar a qualified Pred or Type
+desugarQ :: Desugar c a => [CPred] -> c -> Qual a
+desugarQ cps c = map desugarP cps :=> desugar c

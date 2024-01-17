@@ -109,9 +109,9 @@ wrapError m ctxt = catchError m handler where
 
 tiDecl :: Decl -> TCM ()
 tiDecl (ValDecl i ct) = do
-  let t = desugar ct
-  let tvs = ftv t
-  let s = Forall tvs ([] :=> t)
+  let qt = desugar ct
+  let tvs = ftv qt
+  let s = Forall tvs qt
   extEnv (name i) s
 
 tiDecl (ValBind i as e) = do

@@ -1,6 +1,7 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell #-}
 module Syntax(
-  Prog(..), Expr(..), Arg(..), Decl(..), CType(..), CPred(..), Name, QPred(..),
+  Prog(..), Expr(..), Arg(..), Decl(..), Name,
+  CType(..), CPred(..), QPred(..), QType(..),
   name, expr, prog, decl, showExpr,
   BNFC.Print(..),
   module Language.LBNF.Runtime
@@ -28,15 +29,23 @@ UArg . Arg ::= LIdent;
 separator Arg "";
 
 TypeDecl. Decl ::= "type" CType TyDeRhs;
-ValDecl. Decl ::= LIdent "::" CType;
+ValDecl. Decl ::= LIdent ":" QType;
 ValBind. Decl ::= LIdent [Arg] "=" Expr;
 InstDecl. Decl ::= "instance" QPred;
 separator Decl ";";
+
+-- Cannot use Ctxt here due to conflicts
+T0Qual . QType ::=  CType;
+T1Qual . QType ::=  CPred "=>" CType;
+TNQual . QType ::=  "(" [CPred] ")" "=>" CType;
 
 I0Qual . QPred ::=  CPred;
 I1Qual . QPred ::=  CPred "=>" CPred;
 INQual . QPred ::=  "(" [CPred] ")" "=>" CPred;
 
+
+-- Ctxt0 . Ctxt ::= {- empty -};
+-- CtxtN . Ctxt ::= "(" [CPred] ")" "=>";
 
 EmptyTyDeRhs . TyDeRhs ::= ;
 ConAlts . TyDeRhs ::= "=" [ConAlt];
@@ -50,7 +59,7 @@ separator CPred ",";
 
 -- define tarr t1 t2 = TCon (Ident "->") [t1,t2] ;
 
-CTArr . CType ::= CType1 "->" CType1;
+CTArr . CType ::= CType1 "->" CType;
 CTCon . CType1 ::= UIdent "[" [CType] "]";
 CTCon0 . CType2 ::= UIdent;
 CTVar . CType2 ::= LIdent;

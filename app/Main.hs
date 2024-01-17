@@ -51,7 +51,16 @@ prog2 = [prog|
     f3 x = load (newMRef (add x 1));
     x4 = pair mi siExample;
     x5 = load x4;
+
     type Unit = Unit;
+    unit : Unit;
+
+    store : (ref: Ref[a]) => ref -> a -> Unit;
+    x6 = store mi x2;
+
+    copy from to = store to (load from);
+    x7 = copy siExample mi;
+
     type Itself[a] = Unit ;
     // class a:IndexAccessible[indexType, memberType]
     |]
@@ -61,6 +70,7 @@ prog3 = [prog|
      instance Bool : Eq;
      instance a : Eq => List[a] : Eq;
      instance (a:Eq, b:Eq) => Pair[a,b] : Eq;
+     eq : (a:Eq) => a -> a -> Bool;
      elem x xs = foldr (\y r -> or (eq x y) r) false xs;
      f1 = elem 1 nil;
      f2 x xs = or (eq x (head xs)) (eq (tail xs) nil);
