@@ -17,21 +17,6 @@ type Inst = Qual Pred
 data Type = TCon String [Type] {- | Type :-> Type -} | TVar Tyvar
   deriving Eq
 
--- class Desugar c a | c -> a where
---     desugar :: c -> a
-
-desugarT :: CType -> Type
-desugarT (CTVar i) = TVar (name i)
-desugarT (CTArr t u) = desugarT t :-> desugarT u
-desugarT (CTCon i ts) = TCon (name i) (map desugarT ts) 
-desugarT (CTCon0 i) = TCon (name i) []
-
-desugarP :: CPred -> Pred
-desugarP (PSingle ct i) = InCls (name i) [] (desugarT ct)
-desugarP (PMulti  ct i cts) = InCls (name i) (map desugarT cts) (desugarT ct)
-
-desugarQ :: [CPred] -> CPred -> Qual Pred
-desugarQ cps cp = map desugarP cps :=> desugarP cp
 
 pattern TInt = TCon "Int" []
 pattern (:->) a b = TCon "(->)" [a,b]

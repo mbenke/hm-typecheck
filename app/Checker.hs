@@ -7,6 +7,7 @@ import Data.Either(isRight)
 import Data.Maybe(isJust)
 import qualified Data.Map as Map
 
+import Desugar
 import Syntax
 import Types
 import NameSupply
@@ -108,7 +109,7 @@ wrapError m ctxt = catchError m handler where
 
 tiDecl :: Decl -> TCM ()
 tiDecl (ValDecl i ct) = do
-  let t = desugarT ct
+  let t = desugar ct
   let tvs = ftv t
   let s = Forall tvs ([] :=> t)
   extEnv (name i) s
@@ -118,7 +119,7 @@ tiDecl (ValBind i as e) = do
   s <- tiBind n as e `wrapError` n
   extEnv n s
 
-tiDecl (TypeDecl ct rhs) = modify(addTypeInfo (desugarT ct))
+tiDecl (TypeDecl ct rhs) = modify(addTypeInfo (desugar ct))
 
 tiDecl (I0Qual p) = tiInstance $ desugarQ [] p
 tiDecl (I1Qual q p) = tiInstance $ desugarQ [q] p

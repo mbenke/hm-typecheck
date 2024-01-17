@@ -27,7 +27,8 @@ executable hm
     
     -- Modules included in this executable, other than Main.
     other-modules:
-      Syntax Checker Constraints MLSyntax Types NameSupply, Prims, TCM, Debug
+      Syntax Checker Constraints MLSyntax Types NameSupply Prims TCM
+      Debug Desugar
     
     -- LANGUAGE extensions used by modules in this package.
     other-extensions: TemplateHaskell, QuasiQuotes, PatternSynonyms
