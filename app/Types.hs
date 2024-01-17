@@ -41,18 +41,18 @@ instance Show Type where
 
 instance Show t => Show (Qual t) where
   showsPrec d ([] :=> t) = showsPrec d t
-  showsPrec d ([p] :=> t) = showsPrec 2 p . showString " => " . showsPrec 3 t
-  showsPrec d (ps :=> t) = (showParen many showps) . showString " => " . showsPrec 3 t
+  -- showsPrec d ([p] :=> t) = showsPrec 2 p . showString " => " . showsPrec 3 t
+  showsPrec d (ps :=> t) = (showParen True showps) . showString " => " . showsPrec 3 t
     where
-      many = length ps > 2
+      many = length ps > 1
       showps = showString $ intercalate ", " (map show ps)
 
 instance Show Pred where
-  showsPrec d (IsIn c t) = (showClass c++) . (' ':) . showsPrec 11 t
-  showsPrec d (InCls c as t) = (showClass c++) . (' ':) . showList as
-                                   . (' ':) . showsPrec 11 t
+  showsPrec d (IsIn c t) = showClass c . (' ':) . showsPrec 11 t
+  showsPrec d (InCls c as t) = showsPrec 1 t . showChar ':' . showClass c . showList as
   showsPrec d (t :~: u) = showParen (d>0) $ showsPrec 1 t . (" ~ "++) . showsPrec 1 u
-showClass name = name
+
+showClass name = (name++)
 
 type Tyvar = String
 data Scheme = Forall [Tyvar] (Qual Type)
@@ -71,7 +71,7 @@ forAll s t = Forall (words s) ([] :=> t)
 
 instance Show Scheme where
     showsPrec d (Forall [] t) = shows t
-    showsPrec d (Forall as t) = showString "forall ". showStrings as . showString "." . shows t
+    showsPrec d (Forall as t) = {- showString "forall ". showStrings as . showString "." . -} shows t
 
 showStrings :: [String] -> ShowS
 showStrings [] = id
