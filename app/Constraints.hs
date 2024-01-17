@@ -108,7 +108,7 @@ matchTypes (a:as) (b:bs) = do
   sl <- match a b
   sr <- matchTypes as bs
   merge sl sr
-
+matchTypes ts us = throwError(unwords["types do not match:", show ts, show us])
 
 
 {-

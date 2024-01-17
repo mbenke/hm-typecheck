@@ -20,6 +20,7 @@ expK = [expr| \x -> \y -> x |]
 expSkk :: Expr
 expSkk = vap expS [expK, expK]
 
+-- Lists, pairs, equality
 prog1 = [prog|
      instance Int : Eq;
      instance Bool : Eq;
@@ -38,6 +39,7 @@ prog1 = [prog|
      f7 = f6 false nil;
     |]
 
+-- References
 prog2 :: Prog
 prog2 = [prog|
     // class ref : Ref[deref] { load : ref -> deref }
@@ -61,9 +63,7 @@ prog2 = [prog|
     copy from to = store to (load from);
     x7 = copy siExample mi;
 
-    type Itself[a] = Unit ;
-    // class a:IndexAccessible[indexType, memberType]
-    |]
+   |]
 
 prog3 = [prog|
      instance Int : Eq;
@@ -82,6 +82,23 @@ prog3 = [prog|
      f7 = f6 false nil;
     |]
 
+-- Array indexing
+prog4 = [prog|
+    type Itself[a] = Unit ;
+    // class a:ReadFromMemory => a:MemoryBaseType {
+    // function stride(_:itself(a)) -> word; }
+    stride : (a:MemoryBaseType) => Itself[a] -> Int;
+    instance Int : MemoryBaseType;
+    // class a:IndexAccessible[baseType]
+    // function indexAccess(array:a, index:uint256) -> baseType;
+    indexAccess : (a:IndexAccessible[baseType]) => a -> Int -> baseType;
+
+    type MemoryArray[a];
+    instance (a:MemoryBaseType) => MemoryArray[a]:IndexAccessible[a];
+
+    array : MemoryArray[Int];
+    f8 idx = indexAccess array idx
+    |]
 run = do
   checkExpr expS
   checkExpr expSkk
@@ -98,6 +115,8 @@ run = do
   checkProg prog2
   writeln "-----------------------------------------------------------------------------"
   -- checkProg prog3
+  checkProg prog4
+  writeln "-----------------------------------------------------------------------------"
   -- writeln "Error example:"
   -- checkProg [prog| sum = foldr add 0; bad = sum false  |]
 

@@ -57,6 +57,7 @@ primClasses =
   , ("Ref", refClassInfo)
   -- class a:IndexAccessible[indexType, memberType]
   , ("IndexAccessible", indexClassInfo)
+  , ("MemoryBaseType", mbtClassInfo)
   ]
 
 eqClassInfo :: ClassInfo
@@ -84,3 +85,6 @@ refInstances =
     memo x = TCon "Memory" [x]
 
 indexClassInfo = (2, ["indexAccess"])
+
+-- class a:ReadFromMemory => a:MemoryBaseType
+mbtClassInfo = (0, ["stride"])
