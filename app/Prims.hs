@@ -55,6 +55,8 @@ type ClassInfo = ([String], [Inst])
 primClasses =
   [ ("Eq", eqClassInfo)
   , ("Ref", refClassInfo)
+  -- class a:IndexAccessible[indexType, memberType]
+  , ("IndexAccessible", indexClassInfo)
   ]
 
 eqClassInfo :: ClassInfo
@@ -80,3 +82,5 @@ refInstances =
     b = TVar "b"
     stack x = TCon "Stack" [x]
     memo x = TCon "Memory" [x]
+
+indexClassInfo = (["indexAccess"], [])

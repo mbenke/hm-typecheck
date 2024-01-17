@@ -118,6 +118,8 @@ tiDecl (ValBind i as e) = do
   s <- tiBind n as e `wrapError` n
   extEnv n s
 
+tiDecl (TypeDecl ct rhs) = modify(addTypeInfo (desugarT ct))
+
 tiDecl (I0Qual p) = tiInstance $ desugarQ [] p
 tiDecl (I1Qual q p) = tiInstance $ desugarQ [q] p
 tiDecl (INQual qs p) = tiInstance $ desugarQ qs p

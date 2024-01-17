@@ -27,9 +27,16 @@ coercions Expr 2;
 UArg . Arg ::= LIdent;
 separator Arg "";
 
-TypeDecl. Decl ::= "type" CType;
+TypeDecl. Decl ::= "type" CType TyDeRhs;
 ValDecl. Decl ::= LIdent "::" CType;
 ValBind. Decl ::= LIdent [Arg] "=" Expr;
+
+EmptyTyDeRhs . TyDeRhs ::= ;
+ConAlts . TyDeRhs ::= "=" [ConAlt];
+
+ConAlt . ConAlt ::= UIdent [CType];
+separator ConAlt "|";
+
 I0Qual . Decl ::= "instance" CPred;
 I1Qual . Decl ::= "instance" CPred "=>" CPred;
 INQual . Decl ::= "instance" "(" [CPred] ")" "=>" CPred;

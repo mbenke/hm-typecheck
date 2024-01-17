@@ -166,6 +166,10 @@ addMonoBind n t = Map.insert n s where
 addPolyBind :: Name -> Scheme -> Env -> Env
 addPolyBind n s = Map.insert n s
 
+addTypeInfo :: Type -> TcState -> TcState
+addTypeInfo (TCon n as) st = st { tcsTT = ext (tcsTT st) } where
+  ext = Map.insert n (length as)
+
 addClassInfo :: Name -> ClassInfo -> TcState -> TcState
 addClassInfo n ci st = st { tcsCT = extCT (tcsCT st), tcsIT = extIT (tcsIT st) } where
     extCT = Map.insert n ci

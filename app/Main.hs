@@ -51,6 +51,9 @@ prog2 = [prog|
     f3 x = load (newMRef (add x 1));
     x4 = pair mi siExample;
     x5 = load x4;
+    type Unit = Unit;
+    type Itself[a] = Unit ;
+    // class a:IndexAccessible[indexType, memberType]
     |]
 
 prog3 = [prog|
