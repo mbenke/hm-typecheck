@@ -1,6 +1,6 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell #-}
 module Syntax(
-  Prog(..), Expr(..), Arg(..), Decl(..), CType(..), CPred(..), Name,
+  Prog(..), Expr(..), Arg(..), Decl(..), CType(..), CPred(..), Name, QPred(..),
   name, expr, prog, decl, showExpr,
   BNFC.Print(..),
   module Language.LBNF.Runtime
@@ -30,18 +30,19 @@ separator Arg "";
 TypeDecl. Decl ::= "type" CType TyDeRhs;
 ValDecl. Decl ::= LIdent "::" CType;
 ValBind. Decl ::= LIdent [Arg] "=" Expr;
+InstDecl. Decl ::= "instance" QPred;
+separator Decl ";";
+
+I0Qual . QPred ::=  CPred;
+I1Qual . QPred ::=  CPred "=>" CPred;
+INQual . QPred ::=  "(" [CPred] ")" "=>" CPred;
+
 
 EmptyTyDeRhs . TyDeRhs ::= ;
 ConAlts . TyDeRhs ::= "=" [ConAlt];
 
 ConAlt . ConAlt ::= UIdent [CType];
 separator ConAlt "|";
-
-I0Qual . Decl ::= "instance" CPred;
-I1Qual . Decl ::= "instance" CPred "=>" CPred;
-INQual . Decl ::= "instance" "(" [CPred] ")" "=>" CPred;
-separator Decl ";";
-
 
 PSingle . CPred ::= CType ":" UIdent ;
 PMulti  . CPred ::= CType ":" UIdent "[" [CType] "]" ;

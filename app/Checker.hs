@@ -121,9 +121,7 @@ tiDecl (ValBind i as e) = do
 
 tiDecl (TypeDecl ct rhs) = modify(addTypeInfo (desugar ct))
 
-tiDecl (I0Qual p) = tiInstance $ desugarQ [] p
-tiDecl (I1Qual q p) = tiInstance $ desugarQ [q] p
-tiDecl (INQual qs p) = tiInstance $ desugarQ qs p
+tiDecl (InstDecl qp) = tiInstance (desugar qp)
 
 tiInstance :: Qual Pred -> TCM ()
 tiInstance inst@(q :=> p@(InCls c as t)) = do

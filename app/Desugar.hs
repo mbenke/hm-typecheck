@@ -12,6 +12,11 @@ instance Desugar CType Type where
 instance Desugar CPred Pred where
   desugar = desugarP
 
+instance Desugar QPred (Qual Pred) where
+  desugar (I0Qual p) = desugarQ [] p
+  desugar (I1Qual q p) = desugarQ [q] p
+  desugar (INQual qs p) = desugarQ qs p
+
 desugarT :: CType -> Type
 desugarT (CTVar i) = TVar (name i)
 desugarT (CTArr t u) = desugarT t :-> desugarT u
