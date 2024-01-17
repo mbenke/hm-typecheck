@@ -50,7 +50,7 @@ primTypes =
   , ("SI", 0)
   ]
 
-type ClassInfo = ([String], [Inst])
+type ClassInfo = (Int, [String])
 
 primClasses =
   [ ("Eq", eqClassInfo)
@@ -60,7 +60,7 @@ primClasses =
   ]
 
 eqClassInfo :: ClassInfo
-eqClassInfo = (["eq"], [])
+eqClassInfo = (0, ["eq"])
 eqInstances = [ [] :=> IsIn "Eq" int
                , [] :=> IsIn "Eq" bool
                , [IsIn cEq a] :=> IsIn cEq (list a)
@@ -70,7 +70,7 @@ eqInstances = [ [] :=> IsIn "Eq" int
   list x = TCon "List" [x]
   cEq = "Eq"
 
-refClassInfo = (["load"], [])
+refClassInfo = (1, ["load"])
 refInstances =
   [ [] :=> InCls "Ref" [int] (stack int)  -- inst Ref(int) (Stack Int)
     -- inst Ref a (Memory a)  becomes
@@ -83,4 +83,4 @@ refInstances =
     stack x = TCon "Stack" [x]
     memo x = TCon "Memory" [x]
 
-indexClassInfo = (["indexAccess"], [])
+indexClassInfo = (2, ["indexAccess"])

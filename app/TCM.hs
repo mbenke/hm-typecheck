@@ -21,9 +21,9 @@ type Env = Table Scheme
 
 type TypeTable = Table Int    -- just arity
 type ClassTable = Table ClassInfo
-type ClassInfo = ([Method], [Inst])
+type ClassInfo = (Arity, [Method])
 type InstTable = Table [Inst]
-
+type Arity = Int
 type Method = Name
 
 data TcState = TcState {
