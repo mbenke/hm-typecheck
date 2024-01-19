@@ -36,18 +36,20 @@ primVals =
   memo x = TCon "Memory" [x]
   pair x y = TCon "Pair" [x, y]
 
-primTypes :: [(Name, Int)]
+primTypes :: [(Name, (Int, [String]))]
 primTypes =
-  [ ("Int", 0)
-  , ("Bool", 0)
-  , ("->",  2)
-  , ("List", 1)
-  , ("Maybe", 1)
-  , ("Either", 2)
-  , ("Pair", 2)
+  [ ("Int", (0, []))
+  , ("Bool", (0, ["False", "True"]))
+  , ("->",  (2, []))
+  , ("List", (1, ["Nil", "Cons"]))
+--  , ("Maybe", (1, ["Nothing", "Just"]))
+--   , ("Either", 2)
+{-
+  , ("Pair", (2)
   , ("Memory", 1)
   , ("Stack", 1)
   , ("SI", 0)
+-}
   ]
 
 type ClassInfo = (Int, [String])

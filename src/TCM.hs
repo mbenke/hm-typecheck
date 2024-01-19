@@ -19,7 +19,9 @@ import Types
 type Table a = Map.Map Name a
 type Env = Table Scheme
 
-type TypeTable = Table Int    -- just arity
+
+type TypeTable = Table TypeInfo
+type TypeInfo = (Arity, [Name])  -- arity and oconstructor names
 type ClassTable = Table ClassInfo
 type ClassInfo = (Arity, [Method])
 type InstTable = Table [Inst]
@@ -166,9 +168,9 @@ addMonoBind n t = Map.insert n s where
 addPolyBind :: Name -> Scheme -> Env -> Env
 addPolyBind n s = Map.insert n s
 
-addTypeInfo :: Type -> TcState -> TcState
-addTypeInfo (TCon n as) st = st { tcsTT = ext (tcsTT st) } where
-  ext = Map.insert n (length as)
+addTypeInfo :: Name -> TypeInfo -> TcState -> TcState
+addTypeInfo name typeInfo state = state { tcsTT = ext (tcsTT state) } where
+  ext = Map.insert name typeInfo
 
 addClassInfo :: Name -> ClassInfo -> TcState -> TcState
 addClassInfo n ci st = st { tcsCT = extCT (tcsCT st), tcsIT = extIT (tcsIT st) } where

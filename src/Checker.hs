@@ -18,6 +18,7 @@ import Debug
 
 tiExpr :: Expr -> TCM ([Pred], Type)
 tiExpr (EInt _) = pure ([], TInt)
+-- check a lambda (function) such as `\x y -> x`
 tiExpr (ELam args e1) = do
   env <- getEnv
   as <- addArgs args
@@ -119,9 +120,37 @@ tiDecl (ValBind i as e) = do
   s <- tiBind n as e `wrapError` n
   extEnv n s
 
-tiDecl (TypeDecl ct rhs) = modify(addTypeInfo (desugar ct))
+-- check type declaration,such as `Option a = None |  Some a`
+tiDecl (TypeDecl ct rhs) = do
+  constructors <- tiTypeDefRhs typ rhs
+  modify(addTypeInfo n typeInfo)
+  where
+      typeInfo = (arity, consNames)
+      typ@(TCon n args) = desugar ct
+      arity = length args
+      consNames = [] -- FIXME
 
+-- check instance declaration
 tiDecl (InstDecl qp) = tiInstance (desugar qp)
+
+
+-- check a type definition RHS such as `= None |  Some a`
+tiTypeDefRhs :: Type -> TyDeRhs  -> TCM [(Name, Scheme)]
+tiTypeDefRhs typ EmptyTyDeRhs = pure []
+tiTypeDefRhs typ (ConAlts alts) = tiConAlts typ alts
+
+tiConAlts :: Type -> [ConAlt] -> TCM [(Name, Scheme)]
+tiConAlts typ alts = forM alts (tiConAlt typ)
+
+-- check a constructor alternative such as `Some a`
+-- and within definition of `Option a`, give it type `forall a.a -> Option a`
+tiConAlt :: Type -> ConAlt -> TCM (Name, Scheme)
+tiConAlt result (ConAlt0 ident) =  pure (name ident, monotype result)
+tiConAlt result (ConAltN ident ctas) = pure (name ident, simpleGen constructorType) where
+  argumentTypes = map desugar ctas
+  constructorType = foldr (:->) result argumentTypes  -- at1 :-> at2 :-> ... :-> result
+  simpleGen :: Type -> Scheme
+  simpleGen t = Forall (ftv t) ([] :=> t)
 
 tiInstance :: Qual Pred -> TCM ()
 tiInstance inst@(q :=> p@(InCls c as t)) = do

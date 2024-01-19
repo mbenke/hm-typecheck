@@ -26,6 +26,9 @@ prog1 = [prog|
      instance Bool : Eq;
      instance a : Eq => List[a] : Eq;
      instance (a:Eq, b:Eq) => Pair[a,b] : Eq;
+
+     type Option[a] = None | Some[a];
+     instance a:Eq => Option[a] : Eq;
      len = foldr (\ c n -> add 1 n) 0;
      sum = foldr add 0;
      elem x xs = foldr (\y r -> or (eq x y) r) false xs;

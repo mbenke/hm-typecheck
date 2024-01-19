@@ -2,6 +2,7 @@
 module Syntax(
   Prog(..), Expr(..), Arg(..), Decl(..), Name,
   CType(..), CPred(..), QPred(..), QType(..),
+  TyDeRhs(..), ConAlt(..),
   name, expr, prog, decl, showExpr,
   BNFC.Print(..),
   module Language.LBNF.Runtime
@@ -50,7 +51,9 @@ INQual . QPred ::=  "(" [CPred] ")" "=>" CPred;
 EmptyTyDeRhs . TyDeRhs ::= ;
 ConAlts . TyDeRhs ::= "=" [ConAlt];
 
-ConAlt . ConAlt ::= UIdent [CType];
+ConAlt0 . ConAlt ::= UIdent;
+ConAltN . ConAlt ::= UIdent "[" [CType] "]" ;
+
 separator ConAlt "|";
 
 PSingle . CPred ::= CType ":" UIdent ;
