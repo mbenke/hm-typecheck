@@ -84,6 +84,9 @@ prog3 = [prog|
 
 -- Array indexing
 prog4 = [prog|
+    instance Memory[a]: Ref[a] ;
+    store : (ref: Ref[a]) => ref -> a -> Unit;
+
     type Itself[a] = Unit ;
     // class a:ReadFromMemory => a:MemoryBaseType {
     // function stride(_:itself(a)) -> word; }
@@ -92,12 +95,14 @@ prog4 = [prog|
     // class a:IndexAccessible[baseType]
     // function indexAccess(array:a, index:uint256) -> baseType;
     indexAccess : (a:IndexAccessible[baseType]) => a -> Int -> baseType;
-
+    // can this return a reference?
     type MemoryArray[a];
-    instance (a:MemoryBaseType) => MemoryArray[a]:IndexAccessible[a];
+    instance (a:MemoryBaseType) => MemoryArray[a]:IndexAccessible[Memory[a]];
 
     array : MemoryArray[Int];
-    f8 idx = indexAccess array idx
+    f8 idx = indexAccess array idx;
+    x9 = store (f8 1) 42;
+    x10 = load (f8 2);
     |]
 run = do
   checkExpr expS
