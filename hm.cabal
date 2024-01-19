@@ -21,23 +21,44 @@ maintainer:         marcin@benke.org
 -- category:
 extra-source-files: CHANGELOG.md
 
-executable hm
-    main-is:          Main.hs
+library
     default-extensions: LambdaCase, PatternSynonyms
-    
+
     -- Modules included in this executable, other than Main.
-    other-modules:
-      Syntax Checker Constraints MLSyntax Types NameSupply Prims TCM
+    exposed-modules:
+      Syntax Checker Constraints Types NameSupply Prims TCM
       Debug Desugar
-    
+
     -- LANGUAGE extensions used by modules in this package.
     other-extensions: TemplateHaskell, QuasiQuotes, PatternSynonyms
     build-depends:    base ^>=4.16.4.0,
                       mtl >= 2.2,
                       containers >= 0.6,
                       BNFC-meta >= 0.6
-                      
-                      
+
+
+    hs-source-dirs:   src
+    -- default-language: Haskell2010
+    default-language: GHC2021
+
+executable hm
+    main-is:          Main.hs
+    default-extensions: LambdaCase, PatternSynonyms
+
+    -- Modules included in this executable, other than Main.
+    other-modules:
+    --  Syntax Checker Constraints MLSyntax Types NameSupply Prims TCM
+    --  Debug Desugar
+
+    -- LANGUAGE extensions used by modules in this package.
+    other-extensions: TemplateHaskell, QuasiQuotes, PatternSynonyms
+    build-depends:    base ^>=4.16.4.0,
+                      mtl >= 2.2,
+                      containers >= 0.6,
+                      BNFC-meta >= 0.6,
+                      hm
+
+
     hs-source-dirs:   app
     -- default-language: Haskell2010
     default-language: GHC2021
@@ -49,12 +70,12 @@ executable hm
 --     other-modules:
 --       Syntax MLChecker Constraints MLSyntax Types NameSupply,
 --       TestExpr
-    
+
 --     build-depends:    base ^>=4.16.4.0,
 --                       mtl >= 2.2,
 --                       containers >= 0.6,
 --                       BNFC-meta >= 0.6
-                      
-                      
+
+
 --     hs-source-dirs:   app
 --     default-language: GHC2021
