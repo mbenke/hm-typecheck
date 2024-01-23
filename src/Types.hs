@@ -2,7 +2,6 @@ module Types where
 import Data.List(intercalate)
 import Text.Show
 
-import Syntax
 
 infixr 5 :->
 infix 2 :=>
