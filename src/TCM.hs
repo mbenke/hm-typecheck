@@ -10,7 +10,7 @@ import Data.Maybe(isJust)
 
 import NameSupply
 import Constraints
-import Syntax
+import ISyntax
 
 import Prims(primVals, primTypes, primClasses, eqInstances, refInstances)
 import Types
