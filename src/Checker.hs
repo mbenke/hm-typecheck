@@ -8,7 +8,9 @@ import Data.Maybe(isJust)
 import qualified Data.Map as Map
 
 import Desugar
-import Syntax
+import Syntax hiding(Expr(..))
+import ISyntax(Expr(..))
+import qualified ISyntax as I
 import Types
 import NameSupply
 import Constraints
@@ -28,10 +30,10 @@ tiExpr (ELam args e1) = do
   pure $ (ps, foldr (:->) t1 tas)
 
 tiExpr (EVar v) = do
-  s <- askType (name v)
-  info ["var ", name v, " :: ", str s]
+  s <- askType v
+  info ["var ", v, " :: ", str s]
   ps :=> t <- freshInst s
-  info ["var ", str ps, " |- ", name v, " :: ", str t]
+  info ["var ", str ps, " |- ", v, " :: ", str t]
   pure (ps, t)
 
 tiExpr e@(EApp e1 e2) = do
@@ -47,19 +49,18 @@ tiExpr e@(EApp e1 e2) = do
   info ["tiExpr ", str e, " :: ", str tr' ]
   pure (preds, tr')
 
-tiExpr exp@(ELet ident e1 e2) = do
-  let n = name ident
-  s <- tiBind n [] e1
+tiExpr exp@(ELet x e1 e2) = do
+  s <- tiBind x [] e1
   restore <- setLogging True
-  info ["tiExpr let ", n, " :: ", str s ]
+  info ["tiExpr let ", x, " :: ", str s ]
   setLogging restore
-  (qs, t) <- withExtEnv n s (tiExpr e2)
+  (qs, t) <- withExtEnv x s (tiExpr e2)
   pure (qs, t)
 
-tiExpr (ERec [] e) = tiExpr e
-tiExpr _ = error "ERec not implemented" -- TODO
+-- tiExpr (ERec [] e) = tiExpr e
+-- tiExpr _ = error "ERec not implemented" -- TODO
 
-tiBind :: Name -> [Arg] -> Expr -> TCM Scheme
+tiBind :: Name -> [I.Arg] -> Expr -> TCM Scheme
 tiBind n args e = do
   env <- getEnv
   as <- addArgs args
@@ -69,12 +70,12 @@ tiBind n args e = do
   putEnv env
   generalize (ps, foldr (:->) t0 tas)
 
-tiArg :: Arg -> TCM (Name, Type)
-tiArg (UArg ident) = do
+tiArg :: I.Arg -> TCM (Name, Type)
+tiArg s = do
   a <- tcmDeplete
-  pure (name ident, TVar a)
+  pure (s, TVar a)
 
-addArgs :: [Arg] -> TCM [Type]
+addArgs :: [I.Arg] -> TCM [Type]
 addArgs args = do
   typedArgs <- forM args tiArg
   forM typedArgs $ \(n,t) -> extEnv n (monotype t) >> pure t
@@ -108,46 +109,43 @@ wrapError m ctxt = catchError m handler where
         throwError (decorate msg)
     decorate msg = msg ++ "\n  - in " ++ str ctxt
 
-tiDecl :: Decl -> TCM ()
-tiDecl (ValDecl i ct) = do
-  let qt = desugar ct
+tiDecl :: I.Decl -> TCM ()
+tiDecl (I.ValDecl n qt) = do
   let tvs = ftv qt
   let s = Forall tvs qt
-  extEnv (name i) s
+  extEnv n s
 
-tiDecl (ValBind i as e) = do
-  let n = name i
+tiDecl (I.ValBind n as e) = do
   s <- tiBind n as e `wrapError` n
   extEnv n s
 
 -- check type declaration,such as `Option a = None |  Some a`
-tiDecl (TypeDecl ct rhs) = do
-  constructors <- tiTypeDefRhs typ rhs
+tiDecl (I.TypeDecl typ@(TCon n args) alts) = do
+  constructors <- tiConAlts typ alts
   modify(addTypeInfo n typeInfo)
   where
       typeInfo = (arity, consNames)
-      typ@(TCon n args) = desugar ct
       arity = length args
       consNames = [] -- FIXME
 
 -- check instance declaration
-tiDecl (InstDecl qp) = tiInstance (desugar qp)
+tiDecl (I.InstDecl qp) = tiInstance qp
 
 
 -- check a type definition RHS such as `= None |  Some a`
+{-
 tiTypeDefRhs :: Type -> TyDeRhs  -> TCM [(Name, Scheme)]
 tiTypeDefRhs typ EmptyTyDeRhs = pure []
 tiTypeDefRhs typ (ConAlts alts) = tiConAlts typ alts
-
-tiConAlts :: Type -> [ConAlt] -> TCM [(Name, Scheme)]
+-}
+tiConAlts :: Type -> [I.ConAlt] -> TCM [(Name, Scheme)]
 tiConAlts typ alts = forM alts (tiConAlt typ)
 
 -- check a constructor alternative such as `Some a`
 -- and within definition of `Option a`, give it type `forall a.a -> Option a`
-tiConAlt :: Type -> ConAlt -> TCM (Name, Scheme)
-tiConAlt result (ConAlt0 ident) =  pure (name ident, monotype result)
-tiConAlt result (ConAltN ident ctas) = pure (name ident, simpleGen constructorType) where
-  argumentTypes = map desugar ctas
+tiConAlt :: Type -> I.ConAlt -> TCM (Name, Scheme)
+-- tiConAlt result (ConAlt0 ident) =  pure (name ident, monotype result)
+tiConAlt result (I.ConAlt cname argumentTypes) = pure (cname, simpleGen constructorType) where
   constructorType = foldr (:->) result argumentTypes  -- at1 :-> at2 :-> ... :-> result
   simpleGen :: Type -> Scheme
   simpleGen t = Forall (ftv t) ([] :=> t)
@@ -166,8 +164,10 @@ tiInstance inst@(q :=> p@(InCls c as t)) = do
                  (unwords ["instance",str inst,"overlaps", str oi])
       Left _ -> checkOverlap t is
     matchesType t (_ :=> InCls _ _ u) = match t u
-tiProg :: Prog -> TCM ()
-tiProg (Prog decls) = mapM_ tiDecl decls
+
+
+tiProg :: I.Prog -> TCM ()
+tiProg (I.Prog decls) = mapM_ tiDecl decls
 
 ---- Classes
 
@@ -275,11 +275,11 @@ typeOf exp = do
 typeCheck :: Expr -> IO ()
 typeCheck exp = case evalTCM (schemeOf exp) of
                   Left e -> putStrLn "Error: " >> putStrLn e >> putStrLn ""
-                  Right t -> putStrLn $ (showExpr exp) ++ " :: " ++ show t
+                  Right t -> putStrLn $ (I.showExpr exp) ++ " :: " ++ show t
 
 verboseCheck :: Expr -> IO ()
 verboseCheck exp = do
-  let expS = showExpr exp
+  let expS = I.showExpr exp
   putStrLn $ "Check: " ++ expS
   let (result,state) = runTCM (setLogging True >> schemeOf exp)
   let  cons = constraints state

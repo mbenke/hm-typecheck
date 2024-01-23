@@ -2,7 +2,7 @@
 module Syntax(
   Prog(..), Expr(..), Arg(..), Decl(..), Name,
   CType(..), CPred(..), QPred(..), QType(..),
-  TyDeRhs(..), ConAlt(..),
+  TyDeRhs(..), ConAlt(..), LIdent(..), UIdent(..),
   name, expr, prog, decl, showExpr,
   BNFC.Print(..),
   module Language.LBNF.Runtime
@@ -13,6 +13,7 @@ import Language.LBNF.Runtime(printTree)
 import Language.LBNF(lbnf, bnfc)
 
 
+-- Remember to kep this in sync with Fun.cf
 bnfc [lbnf|
 token UIdent (upper (letter | digit | '_')*) ;
 token LIdent (lower (letter | digit | '_')*) ;

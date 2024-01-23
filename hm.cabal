@@ -26,7 +26,7 @@ library
 
     -- Modules included in this executable, other than Main.
     exposed-modules:
-      Syntax Checker Constraints Types NameSupply Prims TCM
+      ISyntax Syntax Checker Constraints Types NameSupply Prims TCM
       Debug Desugar
 
     -- LANGUAGE extensions used by modules in this package.
@@ -64,18 +64,18 @@ executable hm
     default-language: GHC2021
 
 
--- test-suite testsyntax
---     type:       exitcode-stdio-1.0
---     main-is:          TestSyntax.hs
---     other-modules:
---       Syntax MLChecker Constraints MLSyntax Types NameSupply,
---       TestExpr
+test-suite testprogs
+    type:       exitcode-stdio-1.0
+    main-is:          TestProgs.hs
+    other-modules:
+    default-extensions: LambdaCase, PatternSynonyms
 
---     build-depends:    base ^>=4.16.4.0,
---                       mtl >= 2.2,
---                       containers >= 0.6,
---                       BNFC-meta >= 0.6
+    build-depends:    base ^>=4.16.4.0,
+                      mtl >= 2.2,
+                      containers >= 0.6,
+                      BNFC-meta >= 0.6,
+                      hm
 
 
---     hs-source-dirs:   app
---     default-language: GHC2021
+    hs-source-dirs:   test
+    default-language: GHC2021

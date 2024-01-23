@@ -1,10 +1,14 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell #-}
 import Syntax
+import qualified ISyntax as I
 import Types
+import Desugar
 import Checker(typeCheck, verboseCheck, tiDecl, tiProg)
 import TCM
 import Control.Exception
 import Control.Monad
+import System.Exit
+
 -- QoL helpers
 vap :: Expr -> [Expr] -> Expr
 vap e = foldl EApp e
@@ -19,6 +23,28 @@ expK = [expr| \x -> \y -> x |]
 
 expSkk :: Expr
 expSkk = vap expS [expK, expK]
+
+run = do
+  checkExpr expS
+  checkExpr expSkk
+  checkExpr [expr| let id = \x -> x in id id |]
+  -- checkExpr [expr| \x -> x x |]
+  -- checkExpr [expr| add 1 false |]
+  -- testCheck [expr| add 2 3 |]
+  -- checkExpr [expr| let n5 = add 2 3 in n5 |]
+  -- checkExpr [expr| foldr cons nil |]
+  -- checkExpr [expr| foldr add 0 |]
+  writeln "-----------------------------------------------------------------------------"
+  checkProg prog1
+  writeln "-----------------------------------------------------------------------------"
+  checkProg prog2
+  writeln "-----------------------------------------------------------------------------"
+  -- checkProg prog3
+  checkProg prog4
+  writeln "-----------------------------------------------------------------------------"
+  -- writeln "Error example:"
+  -- checkProg [prog| sum = foldr add 0; bad = sum false  |]
+
 
 -- Lists, pairs, equality
 prog1 = [prog|
@@ -107,33 +133,13 @@ prog4 = [prog|
     x9 = store (f8 1) 42;
     x10 = load (f8 2);
     |]
-run = do
-  checkExpr expS
-  checkExpr expSkk
-  checkExpr [expr| let id = \x -> x in id id |]
-  -- checkExpr [expr| \x -> x x |]
-  -- checkExpr [expr| add 1 false |]
-  -- testCheck [expr| add 2 3 |]
-  -- checkExpr [expr| let n5 = add 2 3 in n5 |]
-  -- checkExpr [expr| foldr cons nil |]
-  -- checkExpr [expr| foldr add 0 |]
-  writeln "-----------------------------------------------------------------------------"
-  checkProg prog1
-  writeln "-----------------------------------------------------------------------------"
-  checkProg prog2
-  writeln "-----------------------------------------------------------------------------"
-  -- checkProg prog3
-  checkProg prog4
-  writeln "-----------------------------------------------------------------------------"
-  -- writeln "Error example:"
-  -- checkProg [prog| sum = foldr add 0; bad = sum false  |]
 
 
 report :: ErrorCall -> IO ()
 report (ErrorCall s) = putStrLn ("ERR: " ++ s)
 
 checkExpr :: Expr -> IO ()
-checkExpr exp = typeCheck exp
+checkExpr exp = typeCheck (desugar exp)
   {-
     do
   res <- try $ typeCheck exp
@@ -142,13 +148,14 @@ checkExpr exp = typeCheck exp
     Right _ -> pure ()
 -}
 checkDecl :: Decl -> IO TcState
-checkDecl = check tiDecl
+checkDecl = check  (tiDecl . desugar)
 
 checkProg = checkProg' False
 vcheckProg = checkProg' True
 
+checkProg' :: Bool -> Prog -> IO ()
 checkProg' verbose prog = do
-  let (res, state) = runTCM (tiProg prog)
+  let (res, state) = runTCM (tiProg (desugar prog))
   case res of
     Left err -> putStrLn "Error: " >> putStrLn err
     Right t -> do
@@ -173,8 +180,8 @@ check c e = do
 
 
 main = try run >>= \case
-  Left e -> report e
-  Right _ -> putStrLn ""
+  Left e -> report e >> exitFailure
+  Right _ -> putStrLn "" >> exitSuccess
 
 writeln = putStrLn
 hrule = writeln hruleStr
