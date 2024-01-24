@@ -37,8 +37,7 @@ data TcState = TcState {
  tcsCT :: ClassTable,              -- classes
  tcsIT :: InstTable,               -- class instances
  tcsNS :: NS,                      -- fresh name supply
- tcsSubst :: Subst,                -- current substitution
- constraints :: Constraints        -- unification constraints
+ tcsSubst :: Subst                -- current substitution
 }
 
 initState = init TcState
@@ -50,12 +49,12 @@ initState = init TcState
   , tcsIT = Map.empty
   , tcsNS = namePool
   , tcsSubst = emptySubst
-  , constraints = []
   } where
     addInstances :: [Inst] -> TcState -> TcState
     addInstances is st = foldr addInstInfo st is
     init :: TcState -> TcState
     init = addPrimClasses
+
 class ToStr a where
   str :: a -> String
 
@@ -145,10 +144,6 @@ unify t1 t2 = do s <- getSubst
 
 extSubst   :: Subst -> TcState -> TcState
 extSubst s st = st { tcsSubst = s <> s0 } where s0 = tcsSubst st
-
-addConstraint :: Constraint -> TCM ()
-addConstraint c = modify (addC c) where
-    addC c s = s { constraints = c:constraints s }
 
 freshInst :: Scheme -> TCM (Qual Type)
 freshInst (Forall tvs ty) = do
