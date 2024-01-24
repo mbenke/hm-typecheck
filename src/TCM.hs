@@ -37,7 +37,8 @@ data TcState = TcState {
  tcsCT :: ClassTable,              -- classes
  tcsIT :: InstTable,               -- class instances
  tcsNS :: NS,                      -- fresh name supply
- tcsSubst :: Subst                -- current substitution
+ tcsSubst :: Subst                 -- current substitution, needed for type reconstruction
+                                   -- may not be needed when only type checking
 }
 
 initState = init TcState

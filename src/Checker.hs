@@ -22,6 +22,8 @@ tiExpr (ELam args e1) = do
   env <- getEnv
   as <- addArgs args
   (ps, t1) <- tiExpr e1
+  -- typing function body may have created constraints on argument types
+  -- these are recorded in the current substitution, which needs to be applied here
   tas <- withCurrentSubst as
   putEnv env
   pure $ (ps, foldr (:->) t1 tas)
