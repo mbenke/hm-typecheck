@@ -33,10 +33,11 @@ tiExpr (EVar v) = do
   info ["var ", str ps, " |- ", v, " :: ", str t]
   pure (ps, t)
 
-tiExpr e@(EApp e1 e2) = do
+-- check an application (function call)
+tiExpr e@(EApp fun arg) = do
   setLogging False
-  (ps, t1) <- tiExpr e1
-  (qs, t2) <- tiExpr e2
+  (ps, t1) <- tiExpr fun
+  (qs, t2) <- tiExpr arg
   freshname <- tcmDeplete
   let tr = TVar freshname
   unify t1 (t2 :-> tr) `wrapError` e
@@ -129,19 +130,12 @@ tiDecl (TypeDecl typ@(TCon n args) alts) = do
 tiDecl (InstDecl qp) = tiInstance qp
 
 
--- check a type definition RHS such as `= None |  Some a`
-{-
-tiTypeDefRhs :: Type -> TyDeRhs  -> TCM [(Name, Scheme)]
-tiTypeDefRhs typ EmptyTyDeRhs = pure []
-tiTypeDefRhs typ (ConAlts alts) = tiConAlts typ alts
--}
 tiConAlts :: Type -> [ConAlt] -> TCM [(Name, Scheme)]
 tiConAlts typ alts = forM alts (tiConAlt typ)
 
 -- check a constructor alternative such as `Some a`
 -- and within definition of `Option a`, give it type `forall a.a -> Option a`
 tiConAlt :: Type -> ConAlt -> TCM (Name, Scheme)
--- tiConAlt result (ConAlt0 ident) =  pure (name ident, monotype result)
 tiConAlt result (ConAlt cname argumentTypes) = pure (cname, simpleGen constructorType) where
   constructorType = foldr (:->) result argumentTypes  -- at1 :-> at2 :-> ... :-> result
   simpleGen :: Type -> Scheme
@@ -188,37 +182,10 @@ getInsts n = do
     Just is -> pure is
     Nothing -> throwError$ "unknown class: " ++  n
 
-{-
-byInst :: ClassTable -> Pred -> Maybe [Pred]
-byInst ce p@(IsIn i t)= msum [tryInst it | it <- insts ce i] where
-    tryInst :: Qual Pred -> Maybe [Pred]
-    tryInst(ps :=> h) = case matchPred h p of
-                          Left _ -> Nothing
-                          Right u -> Just (apply u ps)
-byInst ce p@(InCls i as t)= msum [tryInst it | it <- insts ce i] where
-    tryInst :: Qual Pred -> Maybe [Pred]
-    tryInst(ps :=> h) = case mguPred h p of
-                          Left _ -> Nothing
-                          Right u -> Just (map (apply u) ps)
--}
-
 nonTrivial :: [Tyvar] -> Pred -> Bool
 nonTrivial tvs (IsIn _ (TVar a)) | not (elem a tvs) = False
 nonTrivial tvs _ = True
 
-{-
-simplify :: ClassTable -> [Pred] -> TCM [Pred]
-simplify ce ps = do
-  ce <- gets tcsCT
-  loop [] ps where
-    loop rs [] = pure rs
-    loop rs (p:ps) | entail ce (rs ++ ps) p = loop rs ps
-                   | otherwise = loop (p:rs) ps
-
-entail :: ClassTable -> [Pred] -> Pred -> Bool
-entail ce ps p = p `elem` ps || maybe False allAssumptions (byInst ce p) where
-    allAssumptions = all (entail ce ps)
--}
 simplifyM :: [Pred] -> TCM([Pred], Subst)
 simplifyM ps = do
   setLogging (length ps > 0)
@@ -279,7 +246,6 @@ verboseCheck exp = do
   let expS = showExpr exp
   putStrLn $ "Check: " ++ expS
   let (result,state) = runTCM (setLogging True >> schemeOf exp)
-  let  cons = constraints state
   let  subst = tcsSubst state
   let history = reverse (tcsLog state)
   putStrLn "History:"
@@ -289,17 +255,11 @@ verboseCheck exp = do
                   Left e -> do
                     putStrLn "Error: "
                     putStrLn e
-                    putStrLn "Constraints:"
-                    print cons
                   Right t -> do
                     putStrLn expS
                     let typ = apply subst t
                     putStr ":: "
                     print typ
-                    -- putStrLn "Constraints:"
-                    -- print cons
-                    -- putStr "Substitution:"
-                    -- print subst
 
 {-
 solve :: Constraints -> Subst -> TCM Subst

@@ -17,27 +17,28 @@ import Types
 
 
 type Table a = Map.Map Name a
-type Env = Table Scheme
+type Env = Table Scheme            -- Environment maps names to type schemes
 
 
-type TypeTable = Table TypeInfo
-type TypeInfo = (Arity, [Name])  -- arity and oconstructor names
+type TypeTable = Table TypeInfo    -- TypeTable maps type constructor names to
+type TypeInfo = (Arity, [Name])    -- arity and constructor names
+
 type ClassTable = Table ClassInfo
-type ClassInfo = (Arity, [Method])
-type InstTable = Table [Inst]
+type ClassInfo = (Arity, [Method]) -- number of weak parameters and method names
+type InstTable = Table [Inst]      -- instances list for a given class name
 type Arity = Int
 type Method = Name
 
 data TcState = TcState {
  tcsLogEnabled :: Bool,
- tcsLog :: [String],   -- log, reversed
- tcsEnv :: Env,        -- value env
- tcsTT :: TypeTable,
- tcsCT :: ClassTable,
- tcsIT :: InstTable,
- tcsNS :: NS,
- tcsSubst :: Subst,
- constraints :: Constraints
+ tcsLog :: [String],               -- log, reversed
+ tcsEnv :: Env,                    -- environment
+ tcsTT :: TypeTable,               -- type constructors
+ tcsCT :: ClassTable,              -- classes
+ tcsIT :: InstTable,               -- class instances
+ tcsNS :: NS,                      -- fresh name supply
+ tcsSubst :: Subst,                -- current substitution
+ constraints :: Constraints        -- unification constraints
 }
 
 initState = init TcState
@@ -121,7 +122,6 @@ askType n = do
     Nothing -> error $ "Unknown name: " ++ n
 
 getFreeVars :: TCM [Tyvar]
--- askFreeVars = asks (concatMap (ftv.snd) . Map.toList)
 getFreeVars = gets (concatMap (ftv.snd) . Map.toList . tcsEnv)
 
 tcsDeplete :: TcState -> (String,TcState)
@@ -141,7 +141,6 @@ getSubst = gets tcsSubst
 unify :: Type -> Type -> TCM ()
 unify t1 t2 = do s <- getSubst
                  u <- mgu (apply s t1) (apply s t2)
-                 -- info ["in unify ", str t1, " ~ ", str t2, show s, " => ", show u]
                  modify(extSubst u)
 
 extSubst   :: Subst -> TcState -> TcState
