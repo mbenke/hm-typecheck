@@ -33,6 +33,7 @@ data Prog = Prog [Decl]
 showExpr :: Expr -> String
 showExpr (ELam vs e) = concat ["\\", unwords vs, " -> ", showExpr e] where
 showExpr (EVar v) = v
-showExpr (EApp e1 e2) = concat [showExpr e1, "(", showExpr e2, ")"]
+showExpr (EApp (EVar f) arg) = concat [f, "(", showExpr arg, ")"]
+showExpr (EApp  e1 e2) = concat ["(", showExpr e1, ")", "(", showExpr e2, ")"]
 showExpr (ELet x e1 e2) = concat ["let ",  x, " = ", showExpr e1, " in ", showExpr e2]
 showExpr e = show e
