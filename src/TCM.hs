@@ -81,6 +81,13 @@ setLogging b = do
   modify (\r -> r { tcsLogEnabled = b })
   pure b
 
+withLogging :: T a -> T a
+withLogging action = do
+  restore <- setLogging True
+  result <- action
+  setLogging restore
+  pure result
+
 info :: [String] -> T ()
 info ss = do
   logging <- gets tcsLogEnabled
