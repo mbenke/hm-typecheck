@@ -7,7 +7,10 @@ infixr 5 :->
 infix 2 :=>
 
 data Qual t = [Pred] :=> t deriving Eq
-data Pred = InCls String [Type] Type | Type :~: Type deriving Eq
+
+data Pred = InCls { predName :: String, predArgs :: [Type], predTarget :: Type }
+          | Type :~: Type
+          deriving Eq
 pattern IsIn c t = InCls c [] t
 
 type Class = String

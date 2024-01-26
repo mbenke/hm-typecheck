@@ -35,11 +35,14 @@ run = do
   -- checkExpr [expr| foldr cons nil |]
   -- checkExpr [expr| foldr add 0 |]
   writeln "-----------------------------------------------------------------------------"
+  writeln "// prog1:"
   checkProg prog1
   writeln "-----------------------------------------------------------------------------"
+  writeln "// prog2:"
   checkProg prog2
   writeln "-----------------------------------------------------------------------------"
   -- checkProg prog3
+  writeln "// prog4:"
   checkProg prog4
   writeln "-----------------------------------------------------------------------------"
   -- writeln "Error example:"
@@ -54,7 +57,6 @@ prog1 = [prog|
      instance (a:Eq, b:Eq) => Pair[a,b] : Eq;
 
      type Option[a] = None | Some[a];
-     pure = Some;
      instance a:Eq => Option[a] : Eq;
      len = foldr (\ c n -> add 1 n) 0;
      sum = foldr add 0;
@@ -114,25 +116,31 @@ prog3 = [prog|
 
 -- Array indexing
 prog4 = [prog|
+    class ref : Ref[deref] { load : ref -> deref };
+
     instance Memory[a]: Ref[a] ;
     store : (ref: Ref[a]) => ref -> a -> Unit;
 
-    type Itself[a] = Unit ;
-    // class a:ReadFromMemory => a:MemoryBaseType {
-    // function stride(_:itself(a)) -> word; }
-    stride : (a:MemoryBaseType) => Itself[a] -> Int;
+    type Itself[a] = Proxy ;
+    class a:MemoryBaseType {
+      stride : Itself[a] -> Int;
+    };
+
     instance Int : MemoryBaseType;
-    // class a:IndexAccessible[baseType]
+    class a:IndexAccessible[baseType] {
+       indexAccess : a -> Int -> baseType;
+    };
     // function indexAccess(array:a, index:uint256) -> baseType;
-    indexAccess : (a:IndexAccessible[baseType]) => a -> Int -> baseType;
+    // indexAccess : (a:IndexAccessible[baseType]) => a -> Int -> baseType;
     // can this return a reference?
     type MemoryArray[a];
     instance (a:MemoryBaseType) => MemoryArray[a]:IndexAccessible[Memory[a]];
 
     array : MemoryArray[Int];
-    f8 idx = indexAccess array idx;
-    x9 = store (f8 1) 42;
-    x10 = load (f8 2);
+    f41 idx = indexAccess array idx;
+    x42 = store (f41 1) 42;
+    x43 = load (f41 2);
+    x44 = store (indexAccess array 1) 42; // FIXME: context reduction
     |]
 
 
@@ -158,18 +166,24 @@ checkProg' :: Bool -> Prog -> IO ()
 checkProg' verbose prog = do
   let (res, state) = runTCM (tiProg (desugar prog))
   case res of
-    Left err -> putStrLn "Error: " >> putStrLn err
+    Left err -> do
+      putStrLn "Error: "
+      putStrLn err
+      showLog state
+      exitFailure
     Right t -> do
         putStrLn $ (printTree prog)
         let env = tcsEnv state
         let withPrims = False
-        writeln ""
+        writeln "\nTYPES:\n======"
         writeln (showEnv withPrims env)
-  when verbose $ do
-             let history = reverse (tcsLog state)
-             hrule
-             putStrLn "History:"
-             mapM_ putStrLn history
+  when verbose (showLog state)
+  where
+    showLog state = do
+      let history = reverse (tcsLog state)
+      hrule
+      putStrLn "Log:"
+      mapM_ putStrLn history
 
 check :: (Print e, Show t) => (e -> TCM t)-> e -> IO (TcState)
 check c e = do

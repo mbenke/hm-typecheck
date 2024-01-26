@@ -135,7 +135,26 @@ tiDecl (TypeDecl typ@(TCon name args) alts) = do
 tiDecl (InstDecl qp) = tiInstance qp
 
 -- check class declaration such ass `class a:Eq { eq : a -> a -> Bool }`
-tiDecl(ClsDecl pred methods) = pure () -- FIXME
+tiDecl(ClsDecl pred methods) = do
+  methodNames <- forM methods tiMD
+  let classInfo = (className, methodNames)
+  modify (addClassInfo className (classArity, methodNames)) where
+    className = predName pred
+    classArity = length $ predArgs pred
+    tiMD (ValDecl name ([] :=> typ)) = do
+      extEnv name $ Forall (ftv typ) ([pred] :=> typ)
+      return name
+    tiMD (ValDecl name (preds :=> typ)) = throwError $ unlines
+           [ "- in the declaration of class" ++ predName pred
+           , "- in method " ++ name ++ ":"
+           , "  qualifiers not allowed in method types"
+           ]
+
+    tiMD decl = throwError $ unlines
+           [ "- in the declaration of class " ++ className ++ ":"
+           , "  only type declarations allowed, illegal declaration: " ++ show decl
+           ]
+
 
 tiConAlts :: Type -> [ConAlt] -> TCM [(Name, Scheme)]
 tiConAlts typ alts = forM alts (tiConAlt typ)
@@ -180,7 +199,8 @@ anfInstance inst@(q :=> p@(InCls c as t)) = q ++ q' :=> InCls c bs t  where
     freshNames = filter (not . flip elem tvs) namePool
 
 insts :: InstTable -> Name -> [Inst]
-insts ce n = Map.findWithDefault (error ("instance " ++ n ++ " not found")) n ce
+insts ce n = Map.findWithDefault (error msg) n ce where
+  msg = "Internal error: instance " ++ n ++ " not found"
 
 getInsts :: Name -> TCM [Inst]
 getInsts n = do
@@ -228,7 +248,7 @@ entailM ce ps p = case elem p ps of
 byInstM :: InstTable -> Pred -> Maybe ([Pred], Subst)
 byInstM ce p@(InCls i as t) = msum [tryInst it | it <- insts ce i] where
     tryInst :: Qual Pred -> Maybe ([Pred], Subst)
-    tryInst c@(ps :=> h) = trace (unwords["!> tryInst", str c, "for", str p]) $
+    tryInst c@(ps :=> h) = notrace (unwords["!> tryInst", str c, "for", str p]) $
         case matchPred h p of
           Left _ -> Nothing
           Right u -> let tvs = ftv h

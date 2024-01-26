@@ -25,7 +25,7 @@ primVals =
   , ("snd", forAll "a" $ pair a b :-> b)
   , ("eq", Forall ["a"] $ [IsIn "Eq" a] :=> a :-> a :-> bool)
   , ("newMRef", forAll "a" $ a :->  memo a)
-  , ("load", Forall ["a", "b"] $ [InCls "Ref" [b] a] :=> a :-> b)
+--  , ("load", Forall ["a", "b"] $ [InCls "Ref" [b] a] :=> a :-> b)
   , ("siExample", monotype $ TCon "SI" [])
   ] where
   a = TVar "a"
@@ -56,9 +56,9 @@ type ClassInfo = (Int, [String])
 
 primClasses =
   [ ("Eq", eqClassInfo)
-  , ("Ref", refClassInfo)
+  -- , ("Ref", refClassInfo)
   -- class a:IndexAccessible[indexType, memberType]
-  , ("IndexAccessible", indexClassInfo)
+  -- , ("IndexAccessible", indexClassInfo)
   , ("MemoryBaseType", mbtClassInfo)
   ]
 

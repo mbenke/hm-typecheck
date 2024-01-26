@@ -62,7 +62,7 @@ class ToStr a where
 instance {-# OVERLAPPABLE  #-} Show a => ToStr a where str = show
 instance {-# OVERLAPPING   #-} ToStr String where str = id
 instance {-# OVERLAPPING   #-} ToStr Expr where str = showExpr
-
+instance {-# OVERLAPPING   #-} ToStr InstTable where str = unlines . map show . Map.toList
 instance MonadFail Identity where
   fail = error
 

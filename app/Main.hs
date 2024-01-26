@@ -114,25 +114,31 @@ prog3 = [prog|
 
 -- Array indexing
 prog4 = [prog|
+    class ref : Ref[deref] { load : ref -> deref };
+
     instance Memory[a]: Ref[a] ;
     store : (ref: Ref[a]) => ref -> a -> Unit;
 
-    type Itself[a] = Unit ;
-    // class a:ReadFromMemory => a:MemoryBaseType {
-    // function stride(_:itself(a)) -> word; }
-    stride : (a:MemoryBaseType) => Itself[a] -> Int;
+    type Itself[a] = Proxy ;
+    class a:MemoryBaseType {
+      stride : Itself[a] -> Int;
+    };
+
     instance Int : MemoryBaseType;
-    // class a:IndexAccessible[baseType]
+    class a:IndexAccessible[baseType] {
+       indexAccess : a -> Int -> baseType;
+    };
     // function indexAccess(array:a, index:uint256) -> baseType;
-    indexAccess : (a:IndexAccessible[baseType]) => a -> Int -> baseType;
+    // indexAccess : (a:IndexAccessible[baseType]) => a -> Int -> baseType;
     // can this return a reference?
     type MemoryArray[a];
     instance (a:MemoryBaseType) => MemoryArray[a]:IndexAccessible[Memory[a]];
 
     array : MemoryArray[Int];
-    f8 idx = indexAccess array idx;
-    x9 = store (f8 1) 42;
-    x10 = load (f8 2);
+    f41 idx = indexAccess array idx;
+    x42 = store (f41 1) 42;
+    x43 = load (f41 2);
+    x44 = store (indexAccess array 1) 42; // FIXME: context reduction
     |]
 
 
