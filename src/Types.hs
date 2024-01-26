@@ -70,7 +70,7 @@ forAll s t = Forall (words s) ([] :=> t)
 
 instance Show Scheme where
     showsPrec d (Forall [] t) = shows t
-    showsPrec d (Forall as t) = {- showString "forall ". showStrings as . showString "." . -} shows t
+    showsPrec d (Forall as t) = showString "∀". showStrings as . showString "." . shows t
 
 showStrings :: [String] -> ShowS
 showStrings [] = id
