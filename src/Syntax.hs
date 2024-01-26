@@ -24,6 +24,7 @@ ELet . Expr ::= "let" LIdent "=" Expr "in" Expr;
 ERec . Expr ::= "letrec" [Decl] "in" Expr;
 EApp . Expr1 ::= Expr1 Expr2 ;
 EVar . Expr2 ::= LIdent;
+ECon . Expr2 ::= UIdent;
 EInt . Expr2 ::= Integer;
 coercions Expr 2;
 

@@ -40,6 +40,7 @@ instance Desugar C.Expr I.Expr where
   desugar (C.ELet i e1 e0) = I.ELet (desugar i) (desugar e1) (desugar e0)
   desugar (C.EApp e1 e2) = I.EApp (desugar e1) (desugar e2)
   desugar (C.EVar i) = I.EVar (desugar i)
+  desugar (C.ECon i) = I.ECon (desugar i)
   desugar (C.EInt n) = I.EInt n
 
 instance Desugar C.Decl I.Decl where

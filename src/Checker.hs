@@ -30,9 +30,12 @@ tiExpr (ELam args e1) = do
 
 tiExpr (EVar v) = do
   s <- askType v
-  info ["var ", v, " :: ", str s]
   ps :=> t <- freshInst s
-  info ["var ", str ps, " |- ", v, " :: ", str t]
+  pure (ps, t)
+
+tiExpr (ECon v) = do
+  s <- askType v
+  ps :=> t <- freshInst s
   pure (ps, t)
 
 -- check an application (function call)
@@ -51,9 +54,7 @@ tiExpr e@(EApp fun arg) = do
 
 tiExpr exp@(ELet x e1 e2) = do
   s <- tiBind x [] e1
-  restore <- setLogging True
   info ["tiExpr let ", x, " :: ", str s ]
-  setLogging restore
   (qs, t) <- withExtEnv x s (tiExpr e2)
   pure (qs, t)
 
@@ -120,13 +121,16 @@ tiDecl (ValBind n as e) = do
   extEnv n s
 
 -- check type declaration,such as `Option a = None |  Some a`
-tiDecl (TypeDecl typ@(TCon n args) alts) = do
+tiDecl (TypeDecl typ@(TCon name args) alts) = do
   constructors <- tiConAlts typ alts
-  modify(addTypeInfo n typeInfo)
+  forM constructors addCon
+  let consNames = map fst constructors
+  let arity = length args
+  let typeInfo = (arity, consNames)
+  modify(addTypeInfo name typeInfo)
   where
-      typeInfo = (arity, consNames)
-      arity = length args
-      consNames = [] -- FIXME
+      addCon (name, typ) = extEnv name typ
+
 
 -- check instance declaration
 tiDecl (InstDecl qp) = tiInstance qp

@@ -54,6 +54,7 @@ prog1 = [prog|
      instance (a:Eq, b:Eq) => Pair[a,b] : Eq;
 
      type Option[a] = None | Some[a];
+     pure = Some;
      instance a:Eq => Option[a] : Eq;
      len = foldr (\ c n -> add 1 n) 0;
      sum = foldr add 0;

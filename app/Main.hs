@@ -35,13 +35,13 @@ run = do
   -- checkExpr [expr| foldr cons nil |]
   -- checkExpr [expr| foldr add 0 |]
   writeln "-----------------------------------------------------------------------------"
-  checkProg prog1
+  vcheckProg prog1
   writeln "-----------------------------------------------------------------------------"
   checkProg prog2
   writeln "-----------------------------------------------------------------------------"
   -- checkProg prog3
   checkProg prog4
-  writeln "-----------------------------------------------------------------------------"
+  -- writeln "-----------------------------------------------------------------------------"
   -- writeln "Error example:"
   -- checkProg [prog| sum = foldr add 0; bad = sum false  |]
 
@@ -54,6 +54,7 @@ prog1 = [prog|
      instance (a:Eq, b:Eq) => Pair[a,b] : Eq;
 
      type Option[a] = None | Some[a];
+     pure = Some;
      instance a:Eq => Option[a] : Eq;
      len = foldr (\ c n -> add 1 n) 0;
      sum = foldr add 0;
