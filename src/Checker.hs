@@ -131,10 +131,11 @@ tiDecl (TypeDecl typ@(TCon name args) alts) = do
   where
       addCon (name, typ) = extEnv name typ
 
-
--- check instance declaration
+-- check instance declaration such as `instance Int : Eq`
 tiDecl (InstDecl qp) = tiInstance qp
 
+-- check class declaration such ass `class a:Eq { eq : a -> a -> Bool }`
+tiDecl(ClsDecl pred methods) = pure () -- FIXME
 
 tiConAlts :: Type -> [ConAlt] -> TCM [(Name, Scheme)]
 tiConAlts typ alts = forM alts (tiConAlt typ)

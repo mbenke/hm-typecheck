@@ -72,7 +72,7 @@ prog1 = [prog|
 -- References
 prog2 :: Prog
 prog2 = [prog|
-    // class ref : Ref[deref] { load : ref -> deref }
+    class ref : Ref[deref] { load : ref -> deref };
     instance Stack[Int] : Ref[Int];
     instance SI : Ref[Int];
     instance Memory[a]: Ref[a] ;

@@ -23,6 +23,7 @@ data Decl
     | ValDecl Name (Qual Type)
     | ValBind Name [Arg] Expr
     | InstDecl (Qual Pred)
+    | ClsDecl Pred [Decl]
   deriving (Eq, Show)
 
 data ConAlt = ConAlt Name [Type]

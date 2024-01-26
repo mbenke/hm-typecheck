@@ -2,7 +2,7 @@
 module Syntax(
   Prog(..), Expr(..), Arg(..), Decl(..), Name,
   CType(..), CPred(..), QPred(..), QType(..),
-  TyDeRhs(..), ConAlt(..), LIdent(..), UIdent(..),
+  TyDeRhs(..), ConAlt(..), LIdent(..), UIdent(..), Methods(..),
   name, expr, prog, decl, showExpr,
   BNFC.Print(..),
   module Language.LBNF.Runtime
@@ -35,7 +35,11 @@ TypeDecl. Decl ::= "type" CType TyDeRhs;
 ValDecl. Decl ::= LIdent ":" QType;
 ValBind. Decl ::= LIdent [Arg] "=" Expr;
 InstDecl. Decl ::= "instance" QPred;
+ClsDecl . Decl ::= "class" CPred Methods;
 separator Decl ";";
+
+NoMethods   . Methods ::= {- empty -} ;
+SomeMethods . Methods ::= "{" [Decl] "}";
 
 -- Cannot use Ctxt here due to conflicts
 T0Qual . QType ::=  CType;
