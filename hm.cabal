@@ -27,7 +27,7 @@ library
     -- Modules included in this executable, other than Main.
     exposed-modules:
       ISyntax Syntax Checker Constraints Types NameSupply Prims TCM
-      Debug Desugar
+      Debug
 
     -- LANGUAGE extensions used by modules in this package.
     other-extensions: TemplateHaskell, QuasiQuotes, PatternSynonyms
@@ -41,25 +41,25 @@ library
     -- default-language: Haskell2010
     default-language: GHC2021
 
-executable hm
-    main-is:          Main.hs
+executable fun
+    main-is:          CheckFile.hs
     default-extensions: LambdaCase, PatternSynonyms
 
     -- Modules included in this executable, other than Main.
     other-modules:
-    --  Syntax Checker Constraints MLSyntax Types NameSupply Prims TCM
-    --  Debug Desugar
+      AbsFun LexFun ParFun PrintFun
+      Desugar
 
     -- LANGUAGE extensions used by modules in this package.
     other-extensions: TemplateHaskell, QuasiQuotes, PatternSynonyms
     build-depends:    base ^>=4.16.4.0,
                       mtl >= 2.2,
                       containers >= 0.6,
-                      BNFC-meta >= 0.6,
+                      array >= 0.5,
                       hm
 
 
-    hs-source-dirs:   app
+    hs-source-dirs:   cli
     -- default-language: Haskell2010
     default-language: GHC2021
 
@@ -67,7 +67,7 @@ executable hm
 test-suite testprogs
     type:       exitcode-stdio-1.0
     main-is:          TestProgs.hs
-    other-modules:
+    other-modules:    Desugar
     default-extensions: LambdaCase, PatternSynonyms
 
     build-depends:    base ^>=4.16.4.0,
