@@ -26,22 +26,22 @@ runFile v f = putStrLn f >> readFile f >>= run v
 
 
 run :: Verbosity -> String -> IO ()
-run v s =
-  case pProg ts of
+run verbosity input =
+  case pProg tokens of
     Left err -> do
       putStrLn "\nParse              Failed...\n"
-      putStrV v "Tokens:"
-      mapM_ (putStrV v . showPosToken . mkPosToken) ts
+      putStrV verbosity "Tokens:"
+      mapM_ (putStrV verbosity . showPosToken . mkPosToken) tokens
       putStrLn err
       exitFailure
     Right tree -> do
       putStrLn "\nParse Successful!"
       -- let prog@(Prog decls) = desugar tree
       -- forM_ decls print
-      checkProg tree
+      checkProg' (verbosity > 1) tree
       exitSuccess
   where
-  ts = myLexer s
+  tokens = myLexer input
   showPosToken ((l,c),t) = concat [ show l, ":", show c, "\t", show t ]
 
 usage :: IO ()
@@ -49,9 +49,9 @@ usage = do
   putStrLn $ unlines
     [ "usage: Call with one of the following argument combinations:"
     , "  --help          Display this help message."
-    , "  (no arguments)  Parse stdin verbosely."
-    , "  (files)         Parse content of files verbosely."
-    , "  -s (files)      Silent mode. Parse content of files silently."
+    , "  (no arguments)  Check stdin verbosely."
+    , "  (files)         Check content of files silently."
+    , "  -v (files)      Verbose mode. Parse content of files verbosely."
     ]
   exitFailure
 
@@ -62,8 +62,8 @@ main = do
     [] -> usage    
     ["--help"] -> usage
     ["-"]         -> getContents >>= run 2
-    "-s":fs    -> mapM_ (runFile 0) fs
-    fs         -> mapM_ (runFile 2) fs
+    "-v":fs    -> mapM_ (runFile 2) fs
+    fs         -> mapM_ (runFile 0) fs
 
 checkProg = checkProg' False
 vcheckProg = checkProg' True
