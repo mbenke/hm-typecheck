@@ -217,38 +217,26 @@ simplifyM :: [Pred] -> TCM([Pred], Subst)
 simplifyM ps = do
   setLogging (length ps > 0)
   ce <- gets tcsIT
-  info ["> simplifyM ", str ps]
   loop ce [] ps emptySubst where
     loop :: InstTable -> [Pred] -> [Pred] -> Subst -> TCM([Pred], Subst)
     loop ce rs [] subst = do
-                 info ["< simplifyM ", str ps, " = ", str (rs,subst)]
                  pure (rs, subst)
     loop ce rs (p:ps) subst
              | elem p ps = loop ce rs ps subst
              | otherwise = case entailM ce (rs++ps) p of
                  Just phi -> do
-                             info ["< entailM ", str ps, " |- ", str p, " = ", show phi]
                              loop ce rs ps (phi <> subst)
                  Nothing -> loop ce (p:rs) ps subst
 
 entailM :: InstTable -> [Pred] -> Pred -> Maybe Subst
 entailM ce ps (t :~: u) = maybeFromRight (mgu t u)
-entailM ce ps p = case elem p ps of
-                    True -> Just emptySubst
-                    False -> do
-                      (qs, u) <- byInstM ce p
-                      go qs u where
-                      go :: [Pred] -> Subst -> Maybe Subst
-                      go []     u = pure u
-                      go (q:qs) u  = do
-                                   u' <- entailM ce ps (apply u q)
-                                   go qs (u <> u')
+entailM ce ps p = if elem p ps then Just emptySubst else Nothing
 
 
 byInstM :: InstTable -> Pred -> Maybe ([Pred], Subst)
 byInstM ce p@(InCls i as t) = msum [tryInst it | it <- insts ce i] where
     tryInst :: Qual Pred -> Maybe ([Pred], Subst)
-    tryInst c@(ps :=> h) = notrace (unwords["!> tryInst", str c, "for", str p]) $
+    tryInst c@(ps :=> h) =
         case matchPred h p of
           Left _ -> Nothing
           Right u -> let tvs = ftv h
