@@ -86,7 +86,7 @@ generalize (ps0, t0) = do
   envVars <- getFreeVars
   (ps1, t) <- withCurrentSubst (ps0, t0)
   ce <- gets tcsCT
-  (ps2, phi) <- simplifyM ps1
+  (ps2, phi) <- reduceContext ps1
   let t2 = apply phi t
   let typeVars =  ftv t2
   let ps = filter (nonTrivial typeVars) ps2
@@ -254,8 +254,38 @@ byInstM ce p@(InCls i as t) = msum [tryInst it | it <- insts ce i] where
           Right u -> let tvs = ftv h
                      in  Just (map (apply u) ps, expel tvs u)
 
+-- Reducing contexts to hnf (head-normal form)
+-- e.g. (Pair[Int, b] : Eq) ~> (Int:Eq, b:Eq) ~> (b:Eq)
+
+toHnf :: Pred -> Subst -> TCM([Pred], Subst)
+toHnf pred subst
+  | inHnf pred = return ([pred], subst)
+  | otherwise = do
+      ce <- gets tcsIT
+      case byInstM ce pred of
+        Nothing -> error ("context reduction fails for" ++ str pred)
+        Just (preds, subst') -> toHnfs preds (subst <> subst')
+
+toHnfs :: [Pred] -> Subst -> TCM([Pred], Subst)
+toHnfs [] subst = return ([], subst)
+toHnfs (p:ps) subst = do
+  (rs1, subst') <- toHnf p subst
+  (rs2, subst'') <- toHnfs ps subst'
+  return (rs1 ++ rs2, subst'')
 
 
+inHnf :: Pred -> Bool
+inHnf (InCls c args t) = hnf t where
+  hnf (TVar _) = True
+  hnf (TCon _ _) = False
+inHnf (_ :~: _) = True  -- this is handled by entailM
+
+
+reduceContext :: [Pred] -> TCM ([Pred], Subst)
+reduceContext preds = do
+  (qs,subst') <- toHnfs preds mempty
+  (rs, subst'') <- simplifyM qs
+  return (rs, subst' <> subst'')
 
 -- typeOf :: Expr -> Either String Scheme
 typeOf exp = do
