@@ -90,7 +90,7 @@ generalize (ps0, t0) = do
   let t2 = apply phi t
   let typeVars =  ftv t2
   let ps = filter (nonTrivial typeVars) ps2
-  return $ Forall (typeVars \\ envVars) (ps2 :=> t2)
+  return $ Forall (typeVars \\ envVars) (ps :=> t2)
 
 
 isFreeInEnv :: Tyvar -> TCM Bool
@@ -210,7 +210,7 @@ getInsts n = do
     Nothing -> throwError$ "unknown class: " ++  n
 
 nonTrivial :: [Tyvar] -> Pred -> Bool
-nonTrivial tvs (IsIn _ (TVar a)) | not (elem a tvs) = False
+nonTrivial tvs (InCls _ _ (TVar a)) | not (elem a tvs) = False
 nonTrivial tvs _ = True
 
 simplifyM :: [Pred] -> TCM([Pred], Subst)
