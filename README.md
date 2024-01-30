@@ -43,10 +43,10 @@ cabal run fun examples/prog1
 
 ### Modules
 
-* Checker - central typechecker functions
-* Constraints - uification and matching
-* ISyntax - internal syntax - the tree coming from parser is desugared into this form and then fed into typechecker; this allows some independence from concrete syntax
-* NameSupply - supply of fresh names - not strictly necessary, could be replaced by a counter
-* Prims - primitive types, functions and classes such as `List` or `Eq`
-* TCM - the typechecker state and monad
-* Types - structure of types and predicates for the typechecker
+* `Checker` - central typechecker functions
+* `Constraints` - unification and matching
+* `ISyntax` - internal syntax - the tree coming from parser is desugared into this form and then fed into typechecker; this allows some independence from concrete syntax
+* `NameSupply` - supply of fresh names - not strictly necessary, could be replaced by a counter
+* `Prims` - primitive types, functions and classes such as `List` or `Eq`
+* `TCM` - the typechecker state and monad
+* `Types` - structure of types and predicates for the typechecker
