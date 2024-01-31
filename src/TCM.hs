@@ -126,7 +126,7 @@ askType n = do
   result <- gets (Map.lookup n . tcsEnv)
   case result of
     Just t -> return t
-    Nothing -> error $ "Unknown name: " ++ n
+    Nothing -> throwError $ "Unknown name: " ++ n
 
 getFreeVars :: TCM [Tyvar]
 getFreeVars = gets (concatMap (ftv.snd) . Map.toList . tcsEnv)
