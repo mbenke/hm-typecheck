@@ -251,7 +251,7 @@ toHnf pred subst
   | otherwise = do
       ce <- gets tcsIT
       case byInstM ce pred of
-        Nothing -> error ("context reduction fails for" ++ str pred)
+        Nothing -> throwError ("no instance of " ++ str pred)
         Just (preds, subst') -> toHnfs preds (subst <> subst')
 
 toHnfs :: [Pred] -> Subst -> TCM([Pred], Subst)
