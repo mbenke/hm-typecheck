@@ -1,6 +1,6 @@
     class ref : Ref[deref] {
       load : ref -> deref;
-      store : ref -> a -> Unit;
+      store : ref -> deref -> Unit;
     };
 
     instance Memory[a]: Ref[a] ;
