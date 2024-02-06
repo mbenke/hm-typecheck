@@ -42,14 +42,16 @@ tiExpr (ECon v) = do
 tiExpr e@(EApp fun arg) = do
   setLogging False
   (ps, t1) <- tiExpr fun
+  info ["! EApp fun: ", str(ps :=> t1)]
   (qs, t2) <- tiExpr arg
+  info ["! EApp arg: ", str(qs :=> t2)]
   freshname <- tcmDeplete
   let tr = TVar freshname
   unify t1 (t2 :-> tr) `wrapError` e
   s <- getSubst
   let tr' = apply s tr
   let preds = apply s (ps ++ qs)
-  info ["tiExpr ", str e, " :: ", str tr' ]
+  info ["! EApp res:  ", str e, " :: ", str (preds :=> tr') ]
   pure (preds, tr')
 
 tiExpr exp@(ELet x e1 e2) = do
@@ -66,7 +68,7 @@ tiBind n args e = do
   env <- getEnv
   as <- addArgs args
   (ps, t0) <- tiExpr e
-  info ["tiBind ", show ps, " |- ", str e, " :: ", str t0 ]
+  -- info ["tiBind ", show ps, " |- ", str e, " :: ", str t0 ]
   tas <- withCurrentSubst as
   putEnv env
   generalize (ps, foldr (:->) t0 tas)
@@ -83,13 +85,21 @@ addArgs args = do
 
 generalize :: ([Pred], Type) -> TCM Scheme
 generalize (ps0, t0) = do
+  env <- getEnv
+  withLogging $ info ["> generalize", str (ps0, str t0)]
   envVars <- getFreeVars
+  -- withLogging $ info ["< getFreeVars", str envVars]
   (ps1, t) <- withCurrentSubst (ps0, t0)
+  withLogging $ info ["< withCurrentSubst", str (ps1 :=> t)]
   ce <- gets tcsCT
   (ps2, phi) <- reduceContext ps1
+  withLogging $ info ["< reduceContext ", str ps2, " subst=",str phi]
   let t2 = apply phi t
   let typeVars =  ftv t2
   let ps = filter (nonTrivial typeVars) ps2
+  let trivialPreds = filter (not . (nonTrivial typeVars)) ps2
+  when (not . null $ trivialPreds) $
+       withLogging $ info ["! generalize: trivial ", str trivialPreds]
   return $ Forall (typeVars \\ envVars) (ps2 :=> t2)
 
 
@@ -218,16 +228,20 @@ nonTrivial tvs _ = True
 
 simplifyM :: [Pred] -> TCM([Pred], Subst)
 simplifyM ps = do
-  setLogging (length ps > 0)
+  -- setLogging (length ps > 0)
   ce <- gets tcsIT
   loop ce [] ps emptySubst where
     loop :: InstTable -> [Pred] -> [Pred] -> Subst -> TCM([Pred], Subst)
-    loop ce rs [] subst = do
+    loop ce rs ps subst = do
+      info ["! loop", str ps, " subst=",str subst]
+      loop' ce rs ps subst
+    loop' ce rs [] subst = do
                  pure (rs, subst)
-    loop ce rs (p:ps) subst
+    loop' ce rs (p:ps) subst
              | elem p ps = loop ce rs ps subst
-             | otherwise = case entailM ce (rs++ps) p of
+             | otherwise = case entailM ce (rs++ps) (apply subst p) of
                  Just phi -> do
+                             info ["< entailM(", str p, ") subst=",str phi]
                              loop ce rs ps (phi <> subst)
                  Nothing -> loop ce (p:rs) ps subst
 
@@ -275,7 +289,9 @@ inHnf (_ :~: _) = True  -- this is handled by entailM
 reduceContext :: [Pred] -> TCM ([Pred], Subst)
 reduceContext preds = do
   (qs,subst') <- toHnfs preds mempty
-  (rs, subst'') <- simplifyM qs
+  withLogging $ info ["< toHnfs ", str qs, " subst=",str subst']
+  (rs, subst'') <- simplifyM (apply subst' qs)
+  withLogging $ info ["< simplifyM ", str rs, " subst=",str subst'']
   return (rs, subst' <> subst'')
 
 -- typeOf :: Expr -> Either String Scheme
