@@ -32,4 +32,8 @@
 
     instance Memory[DynamicArray[a]] : IndexAccessible[Memory[a]];
     instance Memory[DynamicArray[a]] : IndexAccessible2[Int, Memory[a]];    
-    
+
+    dynArray : Memory [DynamicArray [Int]];
+    x60 = indexAccess dynArray 1;
+    x61 = store (indexAccess dynArray 1) 42;
+    x62 = store (indexAccess2 dynArray 1) 42
