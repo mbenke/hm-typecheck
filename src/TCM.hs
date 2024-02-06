@@ -117,7 +117,7 @@ withCurrentSubst t = do
 showEnv :: Bool -> Env -> String
 showEnv withPrims env = concat . map showEntry $ Map.toList env where
     showEntry (n, s)
-        | not(isPrimitive n) || withPrims = n ++ " : " ++ str s ++ "\n"
+        | not(isPrimitive n) || withPrims = n ++ " : " ++ str (legibleScheme s) ++ "\n"
         | otherwise = ""
     isPrimitive n = isJust (Map.lookup n primEnv)
 
@@ -152,6 +152,15 @@ unify t1 t2 = do s <- getSubst
 
 extSubst   :: Subst -> TcState -> TcState
 extSubst s st = st { tcsSubst = s <> s0 } where s0 = tcsSubst st
+
+-- Use more legible names for quantified variables
+-- such as    forall a  b . a  -> b  -> a
+-- instead of forall u3 v1. u3 -> v1 -> u3
+legibleScheme :: Scheme -> Scheme
+legibleScheme (Forall tvs ty) = Forall tvs' ty' where
+    tvs' = take (length tvs) namePool
+    subst = Subst $ zip tvs (map TVar tvs')
+    ty' = apply subst ty
 
 freshInst :: Scheme -> TCM (Qual Type)
 freshInst (Forall tvs ty) = renameVars tvs ty
