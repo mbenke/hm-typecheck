@@ -154,9 +154,16 @@ extSubst   :: Subst -> TcState -> TcState
 extSubst s st = st { tcsSubst = s <> s0 } where s0 = tcsSubst st
 
 freshInst :: Scheme -> TCM (Qual Type)
-freshInst (Forall tvs ty) = do
+freshInst (Forall tvs ty) = renameVars tvs ty
+
+-- replace all free type variables with fresh names
+renameFreeVars :: HasTypes a => a -> TCM a
+renameFreeVars a = renameVars (ftv a) a
+
+renameVars :: HasTypes a => [Name] -> a -> TCM a
+renameVars tvs a = do
   s <- Subst <$> mapM newTVar tvs
-  return (apply s ty)
+  return (apply s a)
 
 newTVar :: Tyvar -> TCM (Tyvar, Type)
 newTVar tv = do
