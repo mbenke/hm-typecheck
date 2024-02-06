@@ -89,18 +89,22 @@ generalize (ps0, t0) = do
   withLogging $ info ["> generalize", str (ps0, str t0)]
   envVars <- getFreeVars
   -- withLogging $ info ["< getFreeVars", str envVars]
-  (ps1, t) <- withCurrentSubst (ps0, t0)
-  withLogging $ info ["< withCurrentSubst", str (ps1 :=> t)]
+  (ps1, t1) <- withCurrentSubst (ps0, t0)
+  withLogging $ info ["< withCurrentSubst", str (ps1 :=> t1)]
   ce <- gets tcsCT
   (ps2, phi) <- reduceContext ps1
-  withLogging $ info ["< reduceContext ", str ps2, " subst=",str phi]
-  let t2 = apply phi t
-  let typeVars =  ftv t2
-  let ps = filter (nonTrivial typeVars) ps2
+  withLogging $ info ["< reduceContext 1", str ps2, " subst=",str phi]
+  let t2 = apply phi t1
+  -- we need to reduce the context again, because of equality constraints
+  (ps3, phi') <- reduceContext ps2
+  withLogging $ info ["< reduceContext 2 ", str ps3, " subst=",str phi']
+  let phi3 = phi' <> phi
+  let t3 = apply phi3 t1
+  let typeVars =  ftv t3
   let trivialPreds = filter (not . (nonTrivial typeVars)) ps2
   when (not . null $ trivialPreds) $
        withLogging $ info ["! generalize: trivial ", str trivialPreds]
-  return $ Forall (typeVars \\ envVars) (ps2 :=> t2)
+  return $ Forall (typeVars \\ envVars) (ps3 :=> t3)
 
 
 isFreeInEnv :: Tyvar -> TCM Bool
@@ -239,6 +243,9 @@ simplifyM ps = do
                  pure (rs, subst)
     loop' ce rs (p:ps) subst
              | elem p ps = loop ce rs ps subst
+             | (t :~: u) <- p = case (mgu t u) of
+                                  Left _ -> loop ce (p:rs) ps subst
+                                  Right phi -> loop ce rs (apply subst ps) (phi <> subst)
              | otherwise = case entailM ce (rs++ps) (apply subst p) of
                  Just phi -> do
                              info ["< entailM(", str p, ") subst=",str phi]
@@ -246,7 +253,6 @@ simplifyM ps = do
                  Nothing -> loop ce (p:rs) ps subst
 
 entailM :: InstTable -> [Pred] -> Pred -> Maybe Subst
-entailM ce ps (t :~: u) = maybeFromRight (mgu t u)
 entailM ce ps p = if elem p ps then Just emptySubst else Nothing
 
 
@@ -292,7 +298,8 @@ reduceContext preds = do
   withLogging $ info ["< toHnfs ", str qs, " subst=",str subst']
   (rs, subst'') <- simplifyM (apply subst' qs)
   withLogging $ info ["< simplifyM ", str rs, " subst=",str subst'']
-  return (rs, subst' <> subst'')
+  let subst = subst' <> subst''
+  return (apply subst rs, subst)
 
 -- typeOf :: Expr -> Either String Scheme
 typeOf exp = do
