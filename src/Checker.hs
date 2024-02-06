@@ -168,7 +168,8 @@ tiConAlt result (ConAlt cname argumentTypes) = pure (cname, simpleGen constructo
   simpleGen t = Forall (ftv t) ([] :=> t)
 
 tiInstance :: Qual Pred -> TCM ()
-tiInstance inst@(q :=> p@(InCls c as t)) = do
+tiInstance inst = do
+  inst'@(q :=> p@(InCls c as t)) <- renameFreeVars inst
   ois <- getInsts c
   checkOverlap t ois
   let anf = anfInstance inst
