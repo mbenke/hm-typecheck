@@ -169,6 +169,8 @@ tiConAlt result (ConAlt cname argumentTypes) = pure (cname, simpleGen constructo
 
 tiInstance :: Qual Pred -> TCM ()
 tiInstance inst = do
+  -- Type variables in an instance declaration are implicitly bound
+  -- so they need to be renamed before the overlap check
   inst'@(q :=> p@(InCls c as t)) <- renameFreeVars inst
   ois <- getInsts c
   checkOverlap t ois
