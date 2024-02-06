@@ -90,7 +90,7 @@ generalize (ps0, t0) = do
   let t2 = apply phi t
   let typeVars =  ftv t2
   let ps = filter (nonTrivial typeVars) ps2
-  return $ Forall (typeVars \\ envVars) (ps :=> t2)
+  return $ Forall (typeVars \\ envVars) (ps2 :=> t2)
 
 
 isFreeInEnv :: Tyvar -> TCM Bool
