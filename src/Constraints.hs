@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Constraints where
 import Control.Monad.Error.Class
-import Data.List(union, intersect, nub, (\\), deleteBy, intercalate)
+import Data.List(union, intersect, nub, (\\), deleteBy, nubBy, intercalate)
 import Text.Show(showListWith)
 import Types
 
@@ -74,7 +74,12 @@ instance HasTypes Subst where
 
 instance Semigroup Subst where
   -- apply (s1 <> s2) = apply s1 . apply s2
-  s1@(Subst ps1) <> s2@(Subst ps2) =  Subst $ nub [ (u, apply s1 t) | (u,t) <- ps2 ] ++ ps1
+  -- Original Jones def is sufficient, but confusing when printing substitutions
+  -- s1@(Subst ps1) <> s2@(Subst ps2) = Subst $ nub [(u, apply s1 t) | (u,t) <- ps2 ] ++ ps1
+  s1@(Subst ps1) <> s2@(Subst ps2) = Subst (outer ++ inner) where
+                         outer = [ (u, apply s1 t) | (u,t) <- ps2 ]
+                         inner = [ (v,s) | (v, s) <- ps1, not(elem v dom2)]
+                         dom2 = map fst ps2
 
 instance Monoid Subst where
   mempty = emptySubst

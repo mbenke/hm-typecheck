@@ -86,25 +86,27 @@ addArgs args = do
 generalize :: ([Pred], Type) -> TCM Scheme
 generalize (ps0, t0) = do
   env <- getEnv
-  withLogging $ info ["> generalize", str (ps0, str t0)]
+  withLogging $ info ["> generalize", str (ps0, t0)]
   envVars <- getFreeVars
   -- withLogging $ info ["< getFreeVars", str envVars]
   (ps1, t1) <- withCurrentSubst (ps0, t0)
-  withLogging $ info ["< withCurrentSubst", str (ps1 :=> t1)]
+  -- withLogging $ info ["< withCurrentSubst ", str (ps1 :=> t1)]
   ce <- gets tcsCT
   (ps2, phi) <- reduceContext ps1
-  withLogging $ info ["< reduceContext 1", str ps2, " subst=",str phi]
+  withLogging $ info ["< reduceContext", str ps2, " subst=",str phi]
   let t2 = apply phi t1
+  let typeVars =  ftv t2
+{-
   -- we need to reduce the context again, because of equality constraints
   (ps3, phi') <- reduceContext ps2
   withLogging $ info ["< reduceContext 2 ", str ps3, " subst=",str phi']
   let phi3 = phi' <> phi
   let t3 = apply phi3 t1
-  let typeVars =  ftv t3
-  let trivialPreds = filter (not . (nonTrivial typeVars)) ps2
+  let trivialPreds = filter (not . (nonTrivial typeVars)) ps3
   when (not . null $ trivialPreds) $
        withLogging $ info ["! generalize: trivial ", str trivialPreds]
-  return $ Forall (typeVars \\ envVars) (ps3 :=> t3)
+-}
+  return $ Forall (typeVars \\ envVars) (ps2 :=> t2)
 
 
 isFreeInEnv :: Tyvar -> TCM Bool
@@ -232,13 +234,15 @@ nonTrivial tvs _ = True
 
 simplifyM :: [Pred] -> TCM([Pred], Subst)
 simplifyM ps = do
+  info ["> simplifyM ", str ps]
   -- setLogging (length ps > 0)
   ce <- gets tcsIT
   loop ce [] ps emptySubst where
     loop :: InstTable -> [Pred] -> [Pred] -> Subst -> TCM([Pred], Subst)
     loop ce rs ps subst = do
-      info ["! loop", str ps, " subst=",str subst]
-      loop' ce rs ps subst
+      let ps' = apply subst ps
+      info ["!! loop", str ps, " subst=",str subst, " ps'=", str ps']
+      loop' ce rs ps' subst
     loop' ce rs [] subst = do
                  pure (rs, subst)
     loop' ce rs (p:ps) subst
@@ -249,39 +253,82 @@ simplifyM ps = do
              | otherwise = case entailM ce (rs++ps) (apply subst p) of
                  Just phi -> do
                              info ["< entailM(", str p, ") subst=",str phi]
-                             loop ce rs ps (phi <> subst)
+                             loop ce rs (apply phi ps) (phi <> subst)
                  Nothing -> loop ce (p:rs) ps subst
 
 entailM :: InstTable -> [Pred] -> Pred -> Maybe Subst
-entailM ce ps p = if elem p ps then Just emptySubst else Nothing
+entailM ce ps (TVar a :~: u) = Just (a +-> u)
+entailM ce ps (t :~: u) = case (mgu t u) of
+                                  Left _ -> Nothing
+                                  Right phi -> Just phi
+entailM ce ps p = case elem p ps of
+                    True -> Just emptySubst
+                    False -> do
+                      (qs, u) <- byInstM ce p
+                      go qs u where
+                      go :: [Pred] -> Subst -> Maybe Subst
+                      go []     u = pure u
+                      go (q:qs) u  = do
+                                   u' <- entailM ce ps (apply u q)
+                                   go qs (u <> u')
 
+-- entailM ce ps p = if elem p ps then Just emptySubst else Nothing
+
+-- Transform equality constraints (such as a ~ Memory[Int]) into substitution
+-- so that [b1:Ref[Int],b1 ~ Memory[Int]] becomes ([Memory[Int]:Ref[Int], b1 +-> Int)
+simplifyEqualities :: MonadError String m => [Pred] -> m ([Pred], Subst)
+simplifyEqualities ps = go [] emptySubst ps where
+    go rs subst [] = return (rs, subst)
+    go rs subst ((t :~: u):ps) = do
+      phi <- mgu t u
+      go (apply phi rs) (phi <> subst) (apply phi ps)
+    go rs subst (p:ps) = go (p:rs) subst ps
 
 byInstM :: InstTable -> Pred -> Maybe ([Pred], Subst)
 byInstM ce p@(InCls i as t) = msum [tryInst it | it <- insts ce i] where
     tryInst :: Qual Pred -> Maybe ([Pred], Subst)
     tryInst c@(ps :=> h) =
         case matchPred h p of
-          Left _ -> Nothing
-          Right u -> let tvs = ftv h
+          Left _ -> traces [str h, "does not match", str p]  Nothing
+          Right u -> traces [str h, "matches!"] $ let tvs = ftv h
                      in  Just (map (apply u) ps, expel tvs u)
 
 -- Reducing contexts to hnf (head-normal form)
 -- e.g. (Pair[Int, b] : Eq) ~> (Int:Eq, b:Eq) ~> (b:Eq)
 
 toHnf :: Pred -> Subst -> TCM([Pred], Subst)
+toHnf (t :~: u) subst = do
+  subst1 <- mgu t u
+  return ([], subst1 <> subst)
+
 toHnf pred subst
   | inHnf pred = return ([pred], subst)
   | otherwise = do
+      info ["> toHnf ", str pred]
       ce <- gets tcsIT
       case byInstM ce pred of
         Nothing -> throwError ("no instance of " ++ str pred)
-        Just (preds, subst') -> toHnfs preds (subst <> subst')
+        Just (preds, subst') -> do
+            info["! toHnf <  byInstM ", str preds, " subst'=", str subst']
+            toHnfs preds (subst' <> subst)
 
 toHnfs :: [Pred] -> Subst -> TCM([Pred], Subst)
-toHnfs [] subst = return ([], subst)
-toHnfs (p:ps) subst = do
+toHnfs ps subst = do
+  withLogging $ info ["> toHnfs ", str ps, " subst=",str subst]
+  (ps1, subst1) <- simplifyEqualities ps
+  withLogging $ info ["< simpEqs ", str ps1, " subst1=",str subst1]
+  let subst2 = subst1 <> subst
+  let ps2 = apply subst2 ps1
+  info  ["! toHnfs > toHnfs' ", str ps2, " subst2=",str subst2]
+  toHnfs' ps2 subst2
+
+toHnfs' [] subst = return ([], subst)
+toHnfs' preds@(p:ps) subst = do
+  withLogging $ info ["> toHnfs' ", str preds, " subst=",str subst]
   (rs1, subst') <- toHnf p subst
-  (rs2, subst'') <- toHnfs ps subst'
+  let ps' = apply subst' ps           -- important
+  (rs2, subst'') <- toHnfs' ps' subst'
+  withLogging $ info ["< toHnfs' ", str (rs1++rs2, subst)]
   return (rs1 ++ rs2, subst'')
 
 
@@ -289,17 +336,19 @@ inHnf :: Pred -> Bool
 inHnf (InCls c args t) = hnf t where
   hnf (TVar _) = True
   hnf (TCon _ _) = False
-inHnf (_ :~: _) = True  -- this is handled by entailM
+inHnf (_ :~: _) = False
 
 
 reduceContext :: [Pred] -> TCM ([Pred], Subst)
 reduceContext preds = do
-  (qs,subst') <- toHnfs preds mempty
-  withLogging $ info ["< toHnfs ", str qs, " subst=",str subst']
-  (rs, subst'') <- simplifyM (apply subst' qs)
-  withLogging $ info ["< simplifyM ", str rs, " subst=",str subst'']
-  let subst = subst' <> subst''
-  return (apply subst rs, subst)
+  withLogging $ info ["\n> reduceContext ", str preds]
+  let (ps1, subst1) = (preds, emptySubst)
+  (ps2,subst2) <- toHnfs ps1 subst1
+  withLogging $ info ["< toHnfs ", str ps2, " subst2=",str subst2]
+  (ps3, subst3) <- simplifyM (apply subst2 ps2)
+  withLogging $ info ["< simplifyM ", str ps3, " subst3=",str subst3]
+  let subst = subst2 <> subst3
+  return (apply subst ps3, subst)
 
 -- typeOf :: Expr -> Either String Scheme
 typeOf exp = do
