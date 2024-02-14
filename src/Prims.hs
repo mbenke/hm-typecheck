@@ -27,6 +27,8 @@ primVals =
   , ("newMRef", forAll "a" $ a :->  memo a)
   -- Constructors for primitive types
   , ("Unit", monotype unit)
+  , ("True", monotype bool)
+  , ("False", monotype bool)
   -- methods for class Ref
   , ("load", Forall ["a", "b"] $ [InCls "Ref" [b] a] :=> a :-> b)
   , ("store", Forall ["a", "b"] $ [InCls "Ref" [b] a] :=> a :-> b :-> unit)
