@@ -32,6 +32,7 @@ data Decl
     | ValBind LIdent [Arg] Expr
     | InstDecl QPred
     | ClsDecl CPred Methods
+    | Pragma LIdent
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Methods = NoMethods | SomeMethods [Decl]

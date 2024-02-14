@@ -77,10 +77,11 @@ import LexFun
   'instance' { PT _ (TS _ 14)     }
   'let'      { PT _ (TS _ 15)     }
   'letrec'   { PT _ (TS _ 16)     }
-  'type'     { PT _ (TS _ 17)     }
-  '{'        { PT _ (TS _ 18)     }
-  '|'        { PT _ (TS _ 19)     }
-  '}'        { PT _ (TS _ 20)     }
+  'pragma'   { PT _ (TS _ 17)     }
+  'type'     { PT _ (TS _ 18)     }
+  '{'        { PT _ (TS _ 19)     }
+  '|'        { PT _ (TS _ 20)     }
+  '}'        { PT _ (TS _ 21)     }
   L_integ    { PT _ (TI $$)       }
   L_UIdent   { PT _ (T_UIdent $$) }
   L_LIdent   { PT _ (T_LIdent $$) }
@@ -129,6 +130,7 @@ Decl
   | LIdent ListArg '=' Expr { AbsFun.ValBind $1 $2 $4 }
   | 'instance' QPred { AbsFun.InstDecl $2 }
   | 'class' CPred Methods { AbsFun.ClsDecl $2 $3 }
+  | 'pragma' LIdent { AbsFun.Pragma $2 }
 
 ListDecl :: { [AbsFun.Decl] }
 ListDecl

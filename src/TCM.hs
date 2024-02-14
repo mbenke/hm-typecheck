@@ -76,10 +76,12 @@ putEnv :: Env -> T ()
 putEnv env = modify (\r -> r { tcsEnv = env })
 
 setLogging :: Bool -> T Bool
-setLogging b = do
-  old <- gets tcsLogEnabled
-  modify (\r -> r { tcsLogEnabled = b })
-  pure b
+setLogging switch = do
+  wasLogging <- gets tcsLogEnabled
+  -- warn ["!! setLogging from:", str wasLogging]
+  modify (\r -> r { tcsLogEnabled = switch })
+  -- warn ["!! setLogging to: ", str switch]
+  return wasLogging
 
 withLogging :: T a -> T a
 withLogging action = do

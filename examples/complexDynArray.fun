@@ -61,3 +61,6 @@
     x82 = load (indexAccess dada 82);
     x83 = store (indexAccess x82 83) 17;
     x84 = store (indexAccess (load (indexAccess dada 82)) 83) 42;
+
+    // this should not typecheck
+    // bad85 = store (indexAccess (load (indexAccess dada 82)) 83) false;

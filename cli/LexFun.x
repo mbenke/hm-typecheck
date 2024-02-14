@@ -170,9 +170,11 @@ resWords =
     (b ";" 6
        (b "," 3 (b ")" 2 (b "(" 1 N N) N) (b ":" 5 (b "->" 4 N N) N))
        (b "[" 9 (b "=>" 8 (b "=" 7 N N) N) (b "\\" 10 N N)))
-    (b "letrec" 16
-       (b "instance" 14 (b "in" 13 (b "class" 12 N N) N) (b "let" 15 N N))
-       (b "|" 19 (b "{" 18 (b "type" 17 N N) N) (b "}" 20 N N)))
+    (b "pragma" 17
+       (b "instance" 14
+          (b "in" 13 (b "class" 12 N N) N)
+          (b "letrec" 16 (b "let" 15 N N) N))
+       (b "|" 20 (b "{" 19 (b "type" 18 N N) N) (b "}" 21 N N)))
   where
   b s n = B bs (TS bs n)
     where

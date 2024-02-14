@@ -1,10 +1,9 @@
 {-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
 module Checker where
-import Data.List((\\))
+import Control.Monad
 import Control.Monad.Except
 import Control.Monad.State
-import Data.Either(isRight)
-import Data.Maybe(isJust)
+import Data.List((\\))
 import qualified Data.Map as Map
 
 import ISyntax
@@ -40,23 +39,22 @@ tiExpr (ECon v) = do
 
 -- check an application (function call)
 tiExpr e@(EApp fun arg) = do
-  setLogging False
   (ps, t1) <- tiExpr fun
-  info ["! EApp fun: ", str(ps :=> t1)]
+  -- info ["! EApp fun: ", str(ps :=> t1)]
   (qs, t2) <- tiExpr arg
-  info ["! EApp arg: ", str(qs :=> t2)]
+  -- info ["! EApp arg: ", str(qs :=> t2)]
   freshname <- tcmDeplete
   let tr = TVar freshname
   unify t1 (t2 :-> tr) `wrapError` e
   s <- getSubst
   let tr' = apply s tr
   let preds = apply s (ps ++ qs)
-  info ["! EApp res:  ", str e, " :: ", str (preds :=> tr') ]
+  -- info ["! EApp res:  ", str e, " :: ", str (preds :=> tr') ]
   pure (preds, tr')
 
 tiExpr exp@(ELet x e1 e2) = do
   s <- tiBind x [] e1
-  info ["tiExpr let ", x, " :: ", str s ]
+  -- info ["tiExpr let ", x, " :: ", str s ]
   (qs, t) <- withExtEnv x s (tiExpr e2)
   pure (qs, t)
 
@@ -68,7 +66,7 @@ tiBind n args e = do
   env <- getEnv
   as <- addArgs args
   (ps, t0) <- tiExpr e
-  -- info ["tiBind ", show ps, " |- ", str e, " :: ", str t0 ]
+  info ["! tiBind ", show ps, " |- ", str e, " :: ", str t0 ]
   tas <- withCurrentSubst as
   putEnv env
   generalize (ps, foldr (:->) t0 tas)
@@ -86,14 +84,14 @@ addArgs args = do
 generalize :: ([Pred], Type) -> TCM Scheme
 generalize (ps0, t0) = do
   env <- getEnv
-  withLogging $ info ["> generalize", str (ps0, t0)]
+  info ["> generalize", str (ps0, t0)]
   envVars <- getFreeVars
   -- withLogging $ info ["< getFreeVars", str envVars]
   (ps1, t1) <- withCurrentSubst (ps0, t0)
   -- withLogging $ info ["< withCurrentSubst ", str (ps1 :=> t1)]
   ce <- gets tcsCT
   (ps2, phi) <- reduceContext ps1
-  withLogging $ info ["< reduceContext", str ps2, " subst=",str phi]
+  info ["< reduceContext", str ps2, " subst=",str phi]
   let t2 = apply phi t1
   let typeVars =  ftv t2
 {-
@@ -133,6 +131,7 @@ tiDecl (ValDecl n qt) = do
   extEnv n s
 
 tiDecl (ValBind n as e) = do
+  info ["\nChecking ", n]
   s <- tiBind n as e `wrapError` n
   extEnv n s
 
@@ -171,6 +170,9 @@ tiDecl(ClsDecl pred methods) = do
            , "  only type declarations allowed, illegal declaration: " ++ show decl
            ]
 
+tiDecl (Pragma prag) = process prag where
+    process "log" = void $ setLogging True >> warn ["-- Logging ON  --"]
+    process "nolog" = setLogging False >> warn ["-- Logging OFF --"]
 
 tiConAlts :: Type -> [ConAlt] -> TCM [(Name, Scheme)]
 tiConAlts typ alts = forM alts (tiConAlt typ)
@@ -241,7 +243,7 @@ simplifyM ps = do
     loop :: InstTable -> [Pred] -> [Pred] -> Subst -> TCM([Pred], Subst)
     loop ce rs ps subst = do
       let ps' = apply subst ps
-      info ["!! loop", str ps, " subst=",str subst, " ps'=", str ps']
+      info ["! loop", str ps, " subst=",str subst, " ps'=", str ps']
       loop' ce rs ps' subst
     loop' ce rs [] subst = do
                  pure (rs, subst)
@@ -314,9 +316,9 @@ toHnf pred subst
 
 toHnfs :: [Pred] -> Subst -> TCM([Pred], Subst)
 toHnfs ps subst = do
-  withLogging $ info ["> toHnfs ", str ps, " subst=",str subst]
+  info ["> toHnfs ", str ps, " subst=",str subst]
   (ps1, subst1) <- simplifyEqualities ps
-  withLogging $ info ["< simpEqs ", str ps1, " subst1=",str subst1]
+  info ["< simpEqs ", str ps1, " subst1=",str subst1]
   let subst2 = subst1 <> subst
   let ps2 = apply subst2 ps1
   info  ["! toHnfs > toHnfs' ", str ps2, " subst2=",str subst2]
@@ -324,11 +326,11 @@ toHnfs ps subst = do
 
 toHnfs' [] subst = return ([], subst)
 toHnfs' preds@(p:ps) subst = do
-  withLogging $ info ["> toHnfs' ", str preds, " subst=",str subst]
+  info ["> toHnfs' ", str preds, " subst=",str subst]
   (rs1, subst') <- toHnf p subst
   let ps' = apply subst' ps           -- important
   (rs2, subst'') <- toHnfs' ps' subst'
-  withLogging $ info ["< toHnfs' ", str (rs1++rs2, subst)]
+  info ["< toHnfs' ", str (rs1++rs2, subst)]
   return (rs1 ++ rs2, subst'')
 
 
@@ -341,12 +343,12 @@ inHnf (_ :~: _) = False
 
 reduceContext :: [Pred] -> TCM ([Pred], Subst)
 reduceContext preds = do
-  withLogging $ info ["\n> reduceContext ", str preds]
+  info ["> reduceContext ", str preds]
   let (ps1, subst1) = (preds, emptySubst)
   (ps2,subst2) <- toHnfs ps1 subst1
-  withLogging $ info ["< toHnfs ", str ps2, " subst2=",str subst2]
+  info ["< toHnfs ", str ps2, " subst2=",str subst2]
   (ps3, subst3) <- simplifyM (apply subst2 ps2)
-  withLogging $ info ["< simplifyM ", str ps3, " subst3=",str subst3]
+  info ["< simplifyM ", str ps3, " subst3=",str subst3]
   let subst = subst2 <> subst3
   return (apply subst ps3, subst)
 

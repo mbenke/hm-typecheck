@@ -24,6 +24,7 @@ data Decl
     | ValBind Name [Arg] Expr
     | InstDecl (Qual Pred)
     | ClsDecl Pred [Decl]
+    | Pragma String
   deriving (Eq, Show)
 
 data ConAlt = ConAlt Name [Type]

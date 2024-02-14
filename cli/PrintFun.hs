@@ -171,6 +171,7 @@ instance Print AbsFun.Decl where
     AbsFun.ValBind lident args expr -> prPrec i 0 (concatD [prt 0 lident, prt 0 args, doc (showString "="), prt 0 expr])
     AbsFun.InstDecl qpred -> prPrec i 0 (concatD [doc (showString "instance"), prt 0 qpred])
     AbsFun.ClsDecl cpred methods -> prPrec i 0 (concatD [doc (showString "class"), prt 0 cpred, prt 0 methods])
+    AbsFun.Pragma lident -> prPrec i 0 (concatD [doc (showString "pragma"), prt 0 lident])
 
 instance Print [AbsFun.Decl] where
   prt _ [] = concatD []
