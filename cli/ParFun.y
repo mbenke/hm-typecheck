@@ -14,6 +14,8 @@ module ParFun
   , pExpr2
   , pArg
   , pListArg
+  , pStmt
+  , pListStmt
   , pDecl
   , pListDecl
   , pMethods
@@ -43,6 +45,8 @@ import LexFun
 %name pExpr2 Expr2
 %name pArg Arg
 %name pListArg ListArg
+%name pStmt Stmt
+%name pListStmt ListStmt
 %name pDecl Decl
 %name pListDecl ListDecl
 %name pMethods Methods
@@ -102,7 +106,8 @@ Prog : ListDecl { AbsFun.Prog $1 }
 
 Expr :: { AbsFun.Expr }
 Expr
-  : '\\' ListArg '->' Expr { AbsFun.ELam $2 $4 }
+  : '{' ListStmt '}' { AbsFun.EBlock $2 }
+  | '\\' ListArg '->' Expr { AbsFun.ELam $2 $4 }
   | 'let' LIdent '=' Expr 'in' Expr { AbsFun.ELet $2 $4 $6 }
   | 'letrec' ListDecl 'in' Expr { AbsFun.ERec $2 $4 }
   | Expr1 { $1 }
@@ -122,6 +127,19 @@ Arg : LIdent { AbsFun.UArg $1 }
 
 ListArg :: { [AbsFun.Arg] }
 ListArg : {- empty -} { [] } | Arg ListArg { (:) $1 $2 }
+
+Stmt :: { AbsFun.Stmt }
+Stmt
+  : Expr { AbsFun.SExpr $1 }
+  | Expr '=' Expr { AbsFun.SAssign $1 $3 }
+  | 'let' LIdent ':' CType { AbsFun.SAlloc $2 $4 }
+  | 'let' LIdent '=' Expr { AbsFun.SInit $2 $4 }
+
+ListStmt :: { [AbsFun.Stmt] }
+ListStmt
+  : {- empty -} { [] }
+  | Stmt { (:[]) $1 }
+  | Stmt ';' ListStmt { (:) $1 $3 }
 
 Decl :: { AbsFun.Decl }
 Decl

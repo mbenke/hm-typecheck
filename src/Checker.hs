@@ -61,6 +61,46 @@ tiExpr exp@(ELet x e1 e2) = do
 -- tiExpr (ERec [] e) = tiExpr e
 -- tiExpr _ = error "ERec not implemented" -- TODO
 
+------------------------------------------------------------
+-- Code below very experimental, MASSIVE FIXME
+------------------------------------------------------------
+tiExpr (EBlock stmts) = do
+    env <- getEnv
+    result <- go stmts
+    putEnv env
+    return result
+  where
+    unit = ([], unitT)
+    go [] = return unit
+    go [stmt] = tiStmt stmt
+    go (stmt:rest) = tiStmt stmt >> go rest
+
+    tiStmt :: Stmt -> TCM ([Pred], Type)
+    tiStmt (SExpr e) = tiExpr e
+    tiStmt (SAlloc n t) = do
+      extEnv n (monotype $ stackT t)
+      q <- askType n
+      info ["alloc ", n, " : ", str t, " ~> ", n, " : ", str q]
+      return unit
+    tiStmt (SAssign lhs rhs) = do
+      (pl, tl) <- tiLhs lhs
+      info ["LHS: ", str (pl :=> tl)]
+      (pr, tr) <- tiRhs rhs
+      info ["RHS: ", str (pr :=> tr)]
+      warn ["TODO: store ", str tl, " ", str tr]
+      return unit
+    tiStmt s = warn ["tiStmt: ", str s] >> return unit
+
+
+tiLhs :: Expr -> TCM ( [Pred], Type )
+tiLhs e@(EVar v) = tiExpr e
+tiLhs e = tiRhs e             -- only variables are treated specially on the LHS
+
+tiRhs e@(EVar v) = tiExpr(EApp (EVar "load") e)
+tiRhs e = tiExpr e
+
+------------------------------------------------------------
+
 tiBind :: Name -> [Arg] -> Expr -> TCM Scheme
 tiBind n args e = do
   env <- getEnv

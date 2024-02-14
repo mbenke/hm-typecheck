@@ -14,7 +14,8 @@ data Prog = Prog [Decl]
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Expr
-    = ELam [Arg] Expr
+    = EBlock [Stmt]
+    | ELam [Arg] Expr
     | ELet LIdent Expr Expr
     | ERec [Decl] Expr
     | EApp Expr Expr
@@ -24,6 +25,13 @@ data Expr
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Arg = UArg LIdent
+  deriving (C.Eq, C.Ord, C.Show, C.Read)
+
+data Stmt
+    = SExpr Expr
+    | SAssign Expr Expr
+    | SAlloc LIdent CType
+    | SInit LIdent Expr
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Decl

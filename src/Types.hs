@@ -28,6 +28,9 @@ int = TInt
 bool :: Type
 bool = TCon "Bool" []
 
+unitT = TCon "Unit" []
+stackT a = TCon "Stack" [a]
+       
 instance Show Type where
   showsPrec d (TVar t) = showString t
   showsPrec d (u :-> v) = showParen (d > arr_prec) $

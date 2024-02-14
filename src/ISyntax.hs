@@ -10,6 +10,7 @@ data Expr
     | EVar Name
     | ECon Name
     | EInt Integer
+    | EBlock [Stmt]
   deriving (Eq, Show)
 
 -- data Arg = UArg LIdent
@@ -17,6 +18,12 @@ data Expr
 
 type Arg = Name
 
+data Stmt
+    = SExpr Expr
+    | SAssign Expr Expr
+    | SAlloc Name Type
+    | SInit Name Expr
+  deriving (Eq, Show)
 
 data Decl
     = TypeDecl Type [ConAlt]
