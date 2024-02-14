@@ -48,7 +48,7 @@ executable fun
     -- Modules included in this executable, other than Main.
     other-modules:
       AbsFun LexFun ParFun PrintFun
-      Desugar 
+      Desugar
 
     -- LANGUAGE extensions used by modules in this package.
     other-extensions: TemplateHaskell, QuasiQuotes, PatternSynonyms
@@ -67,7 +67,23 @@ executable fun
 test-suite testprogs
     type:       exitcode-stdio-1.0
     main-is:          TestProgs.hs
-    other-modules:    Desugar Syntax 
+    other-modules:    Desugar Syntax
+    default-extensions: LambdaCase, PatternSynonyms
+
+    build-depends:    base ^>=4.16.4.0,
+                      mtl >= 2.2,
+                      containers >= 0.6,
+                      BNFC-meta >= 0.6,
+                      hm
+
+
+    hs-source-dirs:   test
+    default-language: GHC2021
+
+test-suite unit
+    type:       exitcode-stdio-1.0
+    main-is:          TestUnit.hs
+    other-modules:    Desugar Syntax
     default-extensions: LambdaCase, PatternSynonyms
 
     build-depends:    base ^>=4.16.4.0,
