@@ -74,7 +74,8 @@ prog1 = [prog|
 -- References
 prog2 :: Prog
 prog2 = [prog|
-    class ref : Ref[deref] { load : ref -> deref };
+    type Stack[a];
+    siExample : Stack[Int];
     instance Stack[Int] : Ref[Int];
     instance SI : Ref[Int];
     instance Memory[a]: Ref[a] ;
@@ -89,7 +90,7 @@ prog2 = [prog|
     type Unit = Unit;
     unit : Unit;
 
-    store : (ref: Ref[a]) => ref -> a -> Unit;
+    // store : (ref: Ref[a]) => ref -> a -> Unit;
     x6 = store mi x2;
 
     copy from to = store to (load from);
@@ -116,10 +117,7 @@ prog3 = [prog|
 
 -- Array indexing
 prog4 = [prog|
-    class ref : Ref[deref] { load : ref -> deref };
-
     instance Memory[a]: Ref[a] ;
-    store : (ref: Ref[a]) => ref -> a -> Unit;
 
     type Itself[a] = Proxy ;
     class a:MemoryBaseType {
@@ -140,7 +138,7 @@ prog4 = [prog|
     f41 idx = indexAccess array idx;
     x42 = store (f41 1) 42;
     x43 = load (f41 2);
-    x44 = store (indexAccess array 1) 42; // FIXME: context reduction
+    x44 = store (indexAccess array 1) 42;
     |]
 
 

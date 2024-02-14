@@ -25,11 +25,15 @@ primVals =
   , ("snd", forAll "a b" $ pair a b :-> b)
   , ("eq", Forall ["a"] $ [IsIn "Eq" a] :=> a :-> a :-> bool)
   , ("newMRef", forAll "a" $ a :->  memo a)
---  , ("load", Forall ["a", "b"] $ [InCls "Ref" [b] a] :=> a :-> b)
-  , ("siExample", monotype $ TCon "SI" [])
+  -- Constructors for primitive types
+  , ("Unit", monotype unit)
+  -- methods for class Ref
+  , ("load", Forall ["a", "b"] $ [InCls "Ref" [b] a] :=> a :-> b)
+  , ("store", Forall ["a", "b"] $ [InCls "Ref" [b] a] :=> a :-> b :-> unit)
   ] where
   a = TVar "a"
   b = TVar "b"
+  unit = TCon "Unit" []
   bool2 = monotype $ bool :-> bool :-> bool
   list x = TCon "List" [x]
   stack x = TCon "Stack" [x]
@@ -39,6 +43,7 @@ primVals =
 primTypes :: [(Name, (Int, [String]))]
 primTypes =
   [ ("Int", (0, []))
+  , ("Unit", (0, ["Unit"]))
   , ("Bool", (0, ["False", "True"]))
   , ("->",  (2, []))
   , ("List", (1, ["Nil", "Cons"]))
@@ -56,7 +61,7 @@ type ClassInfo = (Int, [String])
 
 primClasses =
   [ ("Eq", eqClassInfo)
-  -- , ("Ref", refClassInfo)
+  , ("Ref", refClassInfo)
   -- class a:IndexAccessible[indexType, memberType]
   -- , ("IndexAccessible", indexClassInfo)
   , ("MemoryBaseType", mbtClassInfo)

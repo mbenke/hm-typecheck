@@ -1,8 +1,9 @@
+/*
     class ref : Ref[deref] {
       load : ref -> deref;
       store : ref -> deref -> Unit;
     };
-
+*/
     instance Memory[a]: Ref[a] ;
 
     type Itself[a] = Proxy ;
