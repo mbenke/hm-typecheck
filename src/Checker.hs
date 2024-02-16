@@ -73,24 +73,22 @@ tiExpr (EBlock stmts) = do
     unit = ([], unitT)
     go [] = return unit
     go [stmt] = tiStmt stmt
-    go (stmt:rest) = tiStmt stmt >> go rest
-
+    go (stmt:rest) = do -- tiStmt stmt >> go rest
+      (ps, t) <- tiStmt stmt
+      scheme <- generalize (ps, t) `wrapError` stmt
+      info [ show stmt, " : ", str scheme]
+      go rest
     tiStmt :: Stmt -> TCM ([Pred], Type)
-    tiStmt (SExpr e) = tiExpr e
+    tiStmt (SExpr e) = do
+      localEnv <- askTypes (freeVars e)
+      warn [showSmallEnv localEnv, " |- ", str e]
+      tiExpr e
+
     tiStmt (SAlloc n t) = do
       extEnv n (monotype $ stackT t)
       q <- askType n
-      info ["alloc ", n, " : ", str t, " ~> ", n, " : ", str q]
+      warn ["alloc ", n, " : ", str t, " ~> ", n, " : ", str q]
       return unit
-    tiStmt (SAssign lhs rhs) = do
-      (pl, tl) <- tiLhs lhs
-      info ["LHS: ", str (pl :=> tl)]
-      (pr, tr) <- tiRhs rhs
-      info ["RHS: ", str (pr :=> tr)]
-      warn ["TODO: store ", str tl, " ", str tr]
-      return unit
-    tiStmt s = warn ["tiStmt: ", str s] >> return unit
-
 
 tiLhs :: Expr -> TCM ( [Pred], Type )
 tiLhs e@(EVar v) = tiExpr e
