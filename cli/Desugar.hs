@@ -50,8 +50,16 @@ instance Desugar C.Stmt I.Stmt where
   desugar (C.SExpr e)     = I.SExpr (desugar e)
   desugar (C.SAlloc i t)  = I.SAlloc (desugar i) (desugar t)
   desugar (C.SInit i e)   = I.SInit (desugar i) (desugar e)
-  desugar (C.SAssign i e) = I.SAssign (desugar i) (desugar e)
- 
+--  desugar (C.SAssign i e) = I.SAssign (desugar i) (desugar e)
+  desugar (C.SAssign i e) = I.SExpr (store lhs rhs) where
+      store x y = I.EApp (I.EApp (I.EVar "store") lhs) rhs
+      lhs = desugar i
+      rhs = desugarRhs e
+
+desugarRhs :: C.Expr -> I.Expr
+desugarRhs (C.EVar i) = I.EApp (I.EVar "load") (I.EVar (desugar i))
+desugarRhs e = desugar e
+
 instance Desugar C.Decl I.Decl where
   desugar (C.TypeDecl ct rhs)  = I.TypeDecl (desugar ct) (desugar rhs)
   desugar (C.ValDecl i qt)     = I.ValDecl (desugar i) (desugar qt)
