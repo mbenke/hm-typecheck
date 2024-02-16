@@ -4,7 +4,7 @@ import Control.Monad.Except
 import Control.Monad.State
 import Control.Monad.Identity
 
-import Data.List(foldl')
+import Data.List(intercalate)
 import qualified Data.Map as Map
 import Data.Maybe(isJust)
 
@@ -123,12 +123,23 @@ showEnv withPrims env = concat . map showEntry $ Map.toList env where
         | otherwise = ""
     isPrimitive n = isJust (Map.lookup n primEnv)
 
+showSmallEnv :: [(Name,Scheme)] -> String
+showSmallEnv env = intercalate ", " [showEntry (n,s) | (n,s) <- env, not(isPrimitive n)]
+    where
+    withPrims = False
+    showEntry (n, s) = n ++ " : " ++ str (legibleScheme s)
+    isPrimitive n = isJust (Map.lookup n primEnv)
+
+
 askType :: Name -> TCM Scheme
 askType n = do
   result <- gets (Map.lookup n . tcsEnv)
   case result of
     Just t -> return t
     Nothing -> throwError $ "Unknown name: " ++ n
+
+askTypes :: [Name] -> TCM [(Name, Scheme)]
+askTypes  = mapM ask where ask n = do { t <- askType n; return (n,t) }
 
 getFreeVars :: TCM [Tyvar]
 getFreeVars = gets (concatMap (ftv.snd) . Map.toList . tcsEnv)
