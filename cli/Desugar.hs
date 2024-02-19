@@ -58,6 +58,7 @@ instance Desugar C.Stmt I.Stmt where
 
 desugarRhs :: C.Expr -> I.Expr
 desugarRhs (C.EVar i) = I.EApp (I.EVar "load") (I.EVar (desugar i))
+desugarRhs (C.EApp f a) = I.EApp (desugar f) (desugarRhs a)
 desugarRhs e = desugar e
 
 instance Desugar C.Decl I.Decl where
