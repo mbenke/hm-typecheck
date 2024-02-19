@@ -74,15 +74,16 @@ tiExpr (EBlock stmts) = do
     go [] = return unit
     go [stmt] = tiStmt stmt
     go (stmt:rest) = do -- tiStmt stmt >> go rest
-      (ps, t) <- tiStmt stmt
-      scheme <- generalize (ps, t) `wrapError` stmt
-      info [ show stmt, " : ", str scheme]
+      tiStmt stmt
       go rest
     tiStmt :: Stmt -> TCM ([Pred], Type)
     tiStmt (SExpr e) = do
       localEnv <- askTypes (freeVars e)
       warn [showSmallEnv localEnv, " |- ", str e]
-      tiExpr e
+      (ps, t) <- tiExpr e `wrapError` e
+      warn [showSmallEnv localEnv, " |- ", str e, " : ", str $ ps :=> t]
+      scheme <- (generalize (ps, t) `wrapError` e)
+      return unit
 
     tiStmt (SAlloc n t) = do
       extEnv n (monotype $ stackT t)
@@ -316,7 +317,7 @@ entailM ce ps p = case elem p ps of
 
 -- Transform equality constraints (such as a ~ Memory[Int]) into substitution
 -- so that [b1:Ref[Int],b1 ~ Memory[Int]] becomes ([Memory[Int]:Ref[Int], b1 +-> Int)
-simplifyEqualities :: MonadError String m => [Pred] -> m ([Pred], Subst)
+simplifyEqualities :: [Pred] -> TCM ([Pred], Subst)
 simplifyEqualities ps = go [] emptySubst ps where
     go rs subst [] = return (rs, subst)
     go rs subst ((t :~: u):ps) = do
@@ -329,8 +330,8 @@ byInstM ce p@(InCls i as t) = msum [tryInst it | it <- insts ce i] where
     tryInst :: Qual Pred -> Maybe ([Pred], Subst)
     tryInst c@(ps :=> h) =
         case matchPred h p of
-          Left _ -> traces [str h, "does not match", str p]  Nothing
-          Right u -> traces [str h, "matches!"] $ let tvs = ftv h
+          Left _ -> Nothing
+          Right u -> let tvs = ftv h
                      in  Just (map (apply u) ps, expel tvs u)
 
 -- Reducing contexts to hnf (head-normal form)
