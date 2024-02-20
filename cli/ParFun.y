@@ -67,26 +67,27 @@ import LexFun
 %token
   '('        { PT _ (TS _ 1)      }
   ')'        { PT _ (TS _ 2)      }
-  ','        { PT _ (TS _ 3)      }
-  '->'       { PT _ (TS _ 4)      }
-  '.'        { PT _ (TS _ 5)      }
-  ':'        { PT _ (TS _ 6)      }
-  ';'        { PT _ (TS _ 7)      }
-  '='        { PT _ (TS _ 8)      }
-  '=>'       { PT _ (TS _ 9)      }
-  '['        { PT _ (TS _ 10)     }
-  '\\'       { PT _ (TS _ 11)     }
-  ']'        { PT _ (TS _ 12)     }
-  'class'    { PT _ (TS _ 13)     }
-  'in'       { PT _ (TS _ 14)     }
-  'instance' { PT _ (TS _ 15)     }
-  'let'      { PT _ (TS _ 16)     }
-  'letrec'   { PT _ (TS _ 17)     }
-  'pragma'   { PT _ (TS _ 18)     }
-  'type'     { PT _ (TS _ 19)     }
-  '{'        { PT _ (TS _ 20)     }
-  '|'        { PT _ (TS _ 21)     }
-  '}'        { PT _ (TS _ 22)     }
+  '*'        { PT _ (TS _ 3)      }
+  ','        { PT _ (TS _ 4)      }
+  '->'       { PT _ (TS _ 5)      }
+  '.'        { PT _ (TS _ 6)      }
+  ':'        { PT _ (TS _ 7)      }
+  ';'        { PT _ (TS _ 8)      }
+  '='        { PT _ (TS _ 9)      }
+  '=>'       { PT _ (TS _ 10)     }
+  '['        { PT _ (TS _ 11)     }
+  '\\'       { PT _ (TS _ 12)     }
+  ']'        { PT _ (TS _ 13)     }
+  'class'    { PT _ (TS _ 14)     }
+  'in'       { PT _ (TS _ 15)     }
+  'instance' { PT _ (TS _ 16)     }
+  'let'      { PT _ (TS _ 17)     }
+  'letrec'   { PT _ (TS _ 18)     }
+  'pragma'   { PT _ (TS _ 19)     }
+  'type'     { PT _ (TS _ 20)     }
+  '{'        { PT _ (TS _ 21)     }
+  '|'        { PT _ (TS _ 22)     }
+  '}'        { PT _ (TS _ 23)     }
   L_integ    { PT _ (TI $$)       }
   L_UIdent   { PT _ (T_UIdent $$) }
   L_LIdent   { PT _ (T_LIdent $$) }
@@ -117,6 +118,7 @@ Expr1 :: { AbsFun.Expr }
 Expr1
   : Expr1 Expr2 { AbsFun.EApp $1 $2 }
   | Expr1 '.' Expr2 { AbsFun.EMet $1 $3 }
+  | '*' LIdent { AbsFun.EStar $2 }
   | Expr2 { $1 }
 
 Expr2 :: { AbsFun.Expr }

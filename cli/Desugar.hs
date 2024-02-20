@@ -7,6 +7,7 @@ import AbsFun(UIdent(..), LIdent(..), CType(..), CPred(..), QType(..), QPred(..)
 import PrintFun(printTree)
 import qualified ISyntax as I
 import Types
+import Debug
 
 type Name = String
 
@@ -47,19 +48,22 @@ instance Desugar C.Expr I.Expr where
   desugar (C.ECon i)       = I.ECon (desugar i)
   desugar (C.EInt n)       = I.EInt n
   desugar (C.EBlock stmts) = I.EBlock (map desugar stmts)
+  desugar e = error $ "C.Expr.desugar unimplemented for  " ++ show e
 
 instance Desugar C.Stmt (I.Stmt String) where
   desugar stmt@(C.SExpr e)     = I.SExpr (printTree stmt) (desugar e)
   desugar stmt@(C.SAlloc i t)  = I.SAlloc (printTree stmt) (desugar i) (desugar t)
   desugar stmt@(C.SInit i e)   = I.SInit (printTree stmt) (desugar i) (desugar e)
 --  desugar (C.SAssign i e) = I.SAssign (desugar i) (desugar e)
-  desugar stmt@(C.SAssign i e) = I.SExpr (printTree stmt) (store lhs rhs) where
+  desugar stmt@(C.SAssign e1 e2) = I.SExpr (printTree stmt) (store lhs rhs) where
       store x y = I.EApp (I.EApp (I.EVar "store") lhs) rhs
-      lhs = desugarLhs i
-      rhs = desugarRhs e
+      lhs = desugarLhs e1
+      rhs = desugarRhs e2
 
 desugarLhs :: C.Expr -> I.Expr
+desugarLhs (C.EStar i) = I.EApp (I.EVar "load") (I.EVar (desugar i))
 desugarLhs (C.EApp f a) = I.EApp (desugarLhs f) (desugarRhs a)
+desugarLhs (C.EMet a f) = I.EApp (desugarLhs f) (desugarLhs a)
 desugarLhs e = desugar e
 
 desugarRhs :: C.Expr -> I.Expr
