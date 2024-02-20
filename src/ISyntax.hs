@@ -11,7 +11,7 @@ data Expr
     | EVar Name
     | ECon Name
     | EInt Integer
-    | EBlock [Stmt]
+    | EBlock [Stmt String]  -- desugared statements annotated with their source form
   deriving Eq
 
 -- data Arg = UArg LIdent
@@ -19,11 +19,11 @@ data Expr
 
 type Arg = Name
 
-data Stmt
-    = SExpr Expr
---    | SAssign Expr Expr
-    | SAlloc Name Type
-    | SInit Name Expr
+data Stmt ann             -- ann - annotation (e.g. stmt before desugar)
+    = SExpr ann Expr 
+--    | SAssign ann Expr Expr
+    | SAlloc ann Name Type 
+    | SInit ann Name Expr
   deriving (Eq)
 
 data Decl
@@ -74,9 +74,9 @@ showExpr :: Expr -> String
 -- showExpr (EBlock stmts) = intercalate "; " (map showStmt stmts)
 showExpr e = show e
 
-instance Show Stmt where
-    show (SExpr e) = showExpr e
-    show (SAlloc x t) = concat ["let ",  x, " : ", show t]
+instance Show (Stmt ann) where
+    show (SExpr _ e) = showExpr e
+    show (SAlloc _ x t) = concat ["let ",  x, " : ", show t]
 
 class HasFreeVars a where
     freeVars :: a -> [Name]

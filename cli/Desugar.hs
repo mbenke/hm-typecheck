@@ -4,6 +4,7 @@
 module Desugar where
 import qualified AbsFun as C
 import AbsFun(UIdent(..), LIdent(..), CType(..), CPred(..), QType(..), QPred(..))
+import PrintFun(printTree)
 import qualified ISyntax as I
 import Types
 
@@ -47,12 +48,12 @@ instance Desugar C.Expr I.Expr where
   desugar (C.EInt n)       = I.EInt n
   desugar (C.EBlock stmts) = I.EBlock (map desugar stmts)
 
-instance Desugar C.Stmt I.Stmt where
-  desugar (C.SExpr e)     = I.SExpr (desugar e)
-  desugar (C.SAlloc i t)  = I.SAlloc (desugar i) (desugar t)
-  desugar (C.SInit i e)   = I.SInit (desugar i) (desugar e)
+instance Desugar C.Stmt (I.Stmt String) where
+  desugar stmt@(C.SExpr e)     = I.SExpr (printTree stmt) (desugar e)
+  desugar stmt@(C.SAlloc i t)  = I.SAlloc (printTree stmt) (desugar i) (desugar t)
+  desugar stmt@(C.SInit i e)   = I.SInit (printTree stmt) (desugar i) (desugar e)
 --  desugar (C.SAssign i e) = I.SAssign (desugar i) (desugar e)
-  desugar (C.SAssign i e) = I.SExpr (store lhs rhs) where
+  desugar stmt@(C.SAssign i e) = I.SExpr (printTree stmt) (store lhs rhs) where
       store x y = I.EApp (I.EApp (I.EVar "store") lhs) rhs
       lhs = desugarLhs i
       rhs = desugarRhs e

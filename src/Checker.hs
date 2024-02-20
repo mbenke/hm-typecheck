@@ -76,16 +76,16 @@ tiExpr (EBlock stmts) = do
     go (stmt:rest) = do -- tiStmt stmt >> go rest
       tiStmt stmt
       go rest
-    tiStmt :: Stmt -> TCM ([Pred], Type)
-    tiStmt (SExpr e) = do
+    tiStmt :: ToStr ann => Stmt ann -> TCM ([Pred], Type)
+    tiStmt (SExpr ann e) = do
       localEnv <- askTypes (freeVars e)
-      warn [showSmallEnv localEnv, " |- ", str e]
+      warn [showSmallEnv localEnv, " |- ", str ann, " ~> ", str e]
       (ps, t) <- tiExpr e `wrapError` e
       Forall as (ps1 :=> t1) <- (generalize (ps, t) `wrapError` e)
       warn [showSmallEnv localEnv, " |- ", str e, " : ", str $ ps1 :=> t1]
       return unit
 
-    tiStmt (SAlloc n t) = do
+    tiStmt (SAlloc ann n t) = do
       extEnv n (monotype $ stackT t)
       q <- askType n
       warn ["alloc ", n, " : ", str t, " ~> ", n, " : ", str q]
