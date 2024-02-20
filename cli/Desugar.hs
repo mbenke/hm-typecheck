@@ -41,6 +41,7 @@ instance Desugar C.Expr I.Expr where
   desugar (C.ELam args e)  = I.ELam (map desugar args) (desugar e)
   desugar (C.ELet i e1 e0) = I.ELet (desugar i) (desugar e1) (desugar e0)
   desugar (C.EApp e1 e2)   = I.EApp (desugar e1) (desugar e2)
+  desugar (C.EMet e1 e2)   = I.EApp (desugar e2) (desugar e1)
   desugar (C.EVar i)       = I.EVar (desugar i)
   desugar (C.ECon i)       = I.ECon (desugar i)
   desugar (C.EInt n)       = I.EInt n
@@ -53,12 +54,17 @@ instance Desugar C.Stmt I.Stmt where
 --  desugar (C.SAssign i e) = I.SAssign (desugar i) (desugar e)
   desugar (C.SAssign i e) = I.SExpr (store lhs rhs) where
       store x y = I.EApp (I.EApp (I.EVar "store") lhs) rhs
-      lhs = desugar i
+      lhs = desugarLhs i
       rhs = desugarRhs e
+
+desugarLhs :: C.Expr -> I.Expr
+desugarLhs (C.EApp f a) = I.EApp (desugarLhs f) (desugarRhs a)
+desugarLhs e = desugar e
 
 desugarRhs :: C.Expr -> I.Expr
 desugarRhs (C.EVar i) = I.EApp (I.EVar "load") (I.EVar (desugar i))
-desugarRhs (C.EApp f a) = I.EApp (desugar f) (desugarRhs a)
+desugarRhs (C.EApp f a) = I.EApp (desugarLhs f) (desugarRhs a)
+desugarRhs (C.EMet a f) = I.EApp (I.EVar "load") $ I.EApp (desugar f) (desugar a)
 desugarRhs e = desugar e
 
 instance Desugar C.Decl I.Decl where

@@ -81,8 +81,8 @@ tiExpr (EBlock stmts) = do
       localEnv <- askTypes (freeVars e)
       warn [showSmallEnv localEnv, " |- ", str e]
       (ps, t) <- tiExpr e `wrapError` e
-      warn [showSmallEnv localEnv, " |- ", str e, " : ", str $ ps :=> t]
-      scheme <- (generalize (ps, t) `wrapError` e)
+      Forall as (ps1 :=> t1) <- (generalize (ps, t) `wrapError` e)
+      warn [showSmallEnv localEnv, " |- ", str e, " : ", str $ ps1 :=> t1]
       return unit
 
     tiStmt (SAlloc n t) = do
@@ -90,13 +90,6 @@ tiExpr (EBlock stmts) = do
       q <- askType n
       warn ["alloc ", n, " : ", str t, " ~> ", n, " : ", str q]
       return unit
-
-tiLhs :: Expr -> TCM ( [Pred], Type )
-tiLhs e@(EVar v) = tiExpr e
-tiLhs e = tiRhs e             -- only variables are treated specially on the LHS
-
-tiRhs e@(EVar v) = tiExpr(EApp (EVar "load") e)
-tiRhs e = tiExpr e
 
 ------------------------------------------------------------
 

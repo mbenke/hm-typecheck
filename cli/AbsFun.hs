@@ -19,6 +19,7 @@ data Expr
     | ELet LIdent Expr Expr
     | ERec [Decl] Expr
     | EApp Expr Expr
+    | EMet Expr Expr
     | EVar LIdent
     | ECon UIdent
     | EInt Integer

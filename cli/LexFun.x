@@ -28,7 +28,7 @@ $u = [. \n]          -- universal: any character
 
 -- Symbols and non-identifier-like reserved words
 
-@rsyms = \{ | \} | \\ | \- \> | \= | \( | \) | \: | \; | \= \> | \[ | \] | \| | \,
+@rsyms = \{ | \} | \\ | \- \> | \= | \. | \( | \) | \: | \; | \= \> | \[ | \] | \| | \,
 
 :-
 
@@ -166,15 +166,15 @@ eitherResIdent tv s = treeFind resWords
 -- | The keywords and symbols of the language organized as binary search tree.
 resWords :: BTree
 resWords =
-  b "]" 11
-    (b ";" 6
-       (b "," 3 (b ")" 2 (b "(" 1 N N) N) (b ":" 5 (b "->" 4 N N) N))
-       (b "[" 9 (b "=>" 8 (b "=" 7 N N) N) (b "\\" 10 N N)))
-    (b "pragma" 17
-       (b "instance" 14
-          (b "in" 13 (b "class" 12 N N) N)
-          (b "letrec" 16 (b "let" 15 N N) N))
-       (b "|" 20 (b "{" 19 (b "type" 18 N N) N) (b "}" 21 N N)))
+  b "]" 12
+    (b ":" 6
+       (b "," 3 (b ")" 2 (b "(" 1 N N) N) (b "." 5 (b "->" 4 N N) N))
+       (b "=>" 9 (b "=" 8 (b ";" 7 N N) N) (b "\\" 11 (b "[" 10 N N) N)))
+    (b "pragma" 18
+       (b "instance" 15
+          (b "in" 14 (b "class" 13 N N) N)
+          (b "letrec" 17 (b "let" 16 N N) N))
+       (b "|" 21 (b "{" 20 (b "type" 19 N N) N) (b "}" 22 N N)))
   where
   b s n = B bs (TS bs n)
     where
