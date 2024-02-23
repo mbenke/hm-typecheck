@@ -28,6 +28,9 @@
     x51 = store (indexAccess array 1) 42;
     x52 = store (indexAccess2 array 1) 42;
 
+    x53 = indexAccess array 1;
+    x54 = indexAccess array 1;
+
     type DynamicArray[a];
 
     instance Memory[DynamicArray[a]] : IndexAccessible[Memory[a]];
