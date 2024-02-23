@@ -51,7 +51,7 @@ instance Desugar C.Expr I.Expr where
   desugar e = error $ "C.Expr.desugar unimplemented for  " ++ show e
 
 instance Desugar C.Stmt (I.Stmt String) where
-  desugar stmt@(C.SExpr e)     = I.SExpr (printTree stmt) (desugar e)
+  desugar stmt@(C.SExpr e)     = I.SExpr (printTree stmt) (desugarRhs e)
   desugar stmt@(C.SAlloc i t)  = I.SAlloc (printTree stmt) (desugar i) (desugar t)
   desugar stmt@(C.SInit i e)   = I.SInit (printTree stmt) (desugar i) (desugar e)
 --  desugar (C.SAssign i e) = I.SAssign (desugar i) (desugar e)
