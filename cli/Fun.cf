@@ -8,6 +8,7 @@ ELet . Expr ::= "let" LIdent "=" Expr "in" Expr;
 ERec . Expr ::= "letrec" [Decl] "in" Expr;
 EApp . Expr1 ::= Expr1 Expr2 ;
 EMet . Expr1 ::= Expr1 "." Expr2;
+EIdx . Expr1 ::= Expr1 "[" Expr "]";
 EStar. Expr1 ::= "*" LIdent;
 EVar . Expr2 ::= LIdent;
 ECon . Expr2 ::= UIdent;

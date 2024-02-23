@@ -20,6 +20,7 @@ data Expr
     | ERec [Decl] Expr
     | EApp Expr Expr
     | EMet Expr Expr
+    | EIdx Expr Expr
     | EStar LIdent
     | EVar LIdent
     | ECon UIdent

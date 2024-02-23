@@ -118,6 +118,7 @@ Expr1 :: { AbsFun.Expr }
 Expr1
   : Expr1 Expr2 { AbsFun.EApp $1 $2 }
   | Expr1 '.' Expr2 { AbsFun.EMet $1 $3 }
+  | Expr1 '[' Expr ']' { AbsFun.EIdx $1 $3 }
   | '*' LIdent { AbsFun.EStar $2 }
   | Expr2 { $1 }
 
