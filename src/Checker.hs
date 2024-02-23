@@ -79,10 +79,10 @@ tiExpr (EBlock stmts) = do
     tiStmt :: ToStr ann => Stmt ann -> TCM ([Pred], Type)
     tiStmt (SExpr ann e) = do
       localEnv <- askTypes (freeVars e)
-      warn [{- showSmallEnv localEnv, -} " |- ", str ann, " ~> ", str e]
+      warn [str ann, " ~> ", str e]
       (ps, t) <- tiExpr e `wrapError` e
       Forall as (ps1 :=> t1) <- (generalize (ps, t) `wrapError` e)
-      warn [showSmallEnv localEnv, " |- ", str e, " : ", str $ ps1 :=> t1]
+      info [showSmallEnv localEnv, " |- ", str e, " : ", str $ ps1 :=> t1]
       return unit
 
     tiStmt (SAlloc ann n t) = do

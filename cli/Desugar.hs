@@ -68,6 +68,7 @@ desugarLhs e = desugar e
 
 desugarRhs :: C.Expr -> I.Expr
 desugarRhs (C.EVar i) = I.EApp (I.EVar "load") (I.EVar (desugar i))
+desugarRhs (C.EStar i) = load (load (I.EVar (desugar i))) where load = I.EApp (I.EVar "load")
 desugarRhs (C.EApp f a) = I.EApp (desugarLhs f) (desugarRhs a)
 desugarRhs (C.EMet a f) = I.EApp (I.EVar "load") $ I.EApp (desugar f) (desugar a)
 desugarRhs e = desugar e
