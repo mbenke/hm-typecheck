@@ -69,14 +69,15 @@ desugarLhs (C.EIdx a i) = access (desugarRhs a) (desugarRhs i) where
 desugarLhs e = desugar e
 
 desugarRhs :: C.Expr -> I.Expr
-desugarRhs (C.EVar i) = I.EApp (I.EVar "load") (I.EVar (desugar i))
-desugarRhs (C.EStar i) = load (load (I.EVar (desugar i))) where load = I.EApp (I.EVar "load")
-desugarRhs (C.EApp f a) = I.EApp (desugarLhs f) (desugarRhs a)
-desugarRhs (C.EMet a f) = I.EApp (I.EVar "load") $ I.EApp (desugar f) (desugar a)
-desugarRhs (C.EIdx a i) = load $ access (desugarRhs a) (desugarRhs i) where
-    access a = I.EApp (I.EApp (I.EVar "indexAccess") a)
+desugarRhs e = go e where
+    go e@(C.EVar i) = load (I.EVar (desugar i))
+    go e@(C.EStar i) = load (desugarLhs e) 
+    go e@(C.EApp f a) = I.EApp (desugarLhs f) (desugarRhs a)
+    go e@(C.EMet a f) = load $ I.EApp (desugar f) (desugar a)
+    go e@(C.EIdx a i) = load (desugarLhs e) 
+    go e = desugar e
     load = I.EApp (I.EVar "load")
-desugarRhs e = desugar e
+    
 
 instance Desugar C.Decl I.Decl where
   desugar (C.TypeDecl ct rhs)  = I.TypeDecl (desugar ct) (desugar rhs)
