@@ -49,5 +49,8 @@ m1 = {
   *mq.second = mp.load;
   *mq.second = p;
   *x = mq.load.second.first;
+
+  let mpm : Memory[Pair[Int, Memory[Pair[Int,Bool]]]];
+  *mpm.second.load.first = 1;
 }
 
