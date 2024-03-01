@@ -4,13 +4,13 @@ import Types
 
 type Name = String
 data Expr
-    = ELam [Arg] Expr
-    | ELet Name Expr Expr
-    | EApp Expr Expr
-    | EVar Name
-    | ECon Name
-    | EInt Integer
-    | EBlock [Stmt String]  -- desugared statements annotated with their source form
+    = ELam [Arg] Expr        -- function \args -> expr
+    | ELet Name Expr Expr    -- local definition: let name = expr1 in expr2
+    | EApp Expr Expr         -- function call: f(arg)
+    | EVar Name              -- variable
+    | ECon Name              -- value constructor
+    | EInt Integer           -- integer literal
+    | EBlock [Stmt String]   -- desugared statements annotated with their source form
   deriving Eq
 
 -- data Arg = UArg LIdent
