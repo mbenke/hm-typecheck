@@ -82,12 +82,11 @@ import LexFun
   'in'       { PT _ (TS _ 15)     }
   'instance' { PT _ (TS _ 16)     }
   'let'      { PT _ (TS _ 17)     }
-  'letrec'   { PT _ (TS _ 18)     }
-  'pragma'   { PT _ (TS _ 19)     }
-  'type'     { PT _ (TS _ 20)     }
-  '{'        { PT _ (TS _ 21)     }
-  '|'        { PT _ (TS _ 22)     }
-  '}'        { PT _ (TS _ 23)     }
+  'pragma'   { PT _ (TS _ 18)     }
+  'type'     { PT _ (TS _ 19)     }
+  '{'        { PT _ (TS _ 20)     }
+  '|'        { PT _ (TS _ 21)     }
+  '}'        { PT _ (TS _ 22)     }
   L_integ    { PT _ (TI $$)       }
   L_UIdent   { PT _ (T_UIdent $$) }
   L_LIdent   { PT _ (T_LIdent $$) }
@@ -111,7 +110,6 @@ Expr
   : '{' ListStmt '}' { AbsFun.EBlock $2 }
   | '\\' ListArg '->' Expr { AbsFun.ELam $2 $4 }
   | 'let' LIdent '=' Expr 'in' Expr { AbsFun.ELet $2 $4 $6 }
-  | 'letrec' ListDecl 'in' Expr { AbsFun.ERec $2 $4 }
   | Expr1 { $1 }
 
 Expr1 :: { AbsFun.Expr }

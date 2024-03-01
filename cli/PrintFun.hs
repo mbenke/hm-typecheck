@@ -151,7 +151,6 @@ instance Print AbsFun.Expr where
     AbsFun.EBlock stmts -> prPrec i 0 (concatD [doc (showString "{"), prt 0 stmts, doc (showString "}")])
     AbsFun.ELam args expr -> prPrec i 0 (concatD [doc (showString "\\"), prt 0 args, doc (showString "->"), prt 0 expr])
     AbsFun.ELet lident expr1 expr2 -> prPrec i 0 (concatD [doc (showString "let"), prt 0 lident, doc (showString "="), prt 0 expr1, doc (showString "in"), prt 0 expr2])
-    AbsFun.ERec decls expr -> prPrec i 0 (concatD [doc (showString "letrec"), prt 0 decls, doc (showString "in"), prt 0 expr])
     AbsFun.EApp expr1 expr2 -> prPrec i 1 (concatD [prt 1 expr1, prt 2 expr2])
     AbsFun.EMet expr1 expr2 -> prPrec i 1 (concatD [prt 1 expr1, doc (showString "."), prt 2 expr2])
     AbsFun.EIdx expr1 expr2 -> prPrec i 1 (concatD [prt 1 expr1, doc (showString "["), prt 0 expr2, doc (showString "]")])

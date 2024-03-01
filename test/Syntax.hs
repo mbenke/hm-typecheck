@@ -21,7 +21,6 @@ token LIdent (lower (letter | digit | '_')*) ;
 Prog . Prog ::= [Decl];
 ELam . Expr ::= "\\" [Arg] "->" Expr ;
 ELet . Expr ::= "let" LIdent "=" Expr "in" Expr;
-ERec . Expr ::= "letrec" [Decl] "in" Expr;
 EApp . Expr1 ::= Expr1 Expr2 ;
 EVar . Expr2 ::= LIdent;
 ECon . Expr2 ::= UIdent;

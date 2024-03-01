@@ -17,7 +17,6 @@ data Expr
     = EBlock [Stmt]
     | ELam [Arg] Expr
     | ELet LIdent Expr Expr
-    | ERec [Decl] Expr
     | EApp Expr Expr
     | EMet Expr Expr
     | EIdx Expr Expr

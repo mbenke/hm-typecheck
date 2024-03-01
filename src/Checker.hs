@@ -58,9 +58,6 @@ tiExpr exp@(ELet x e1 e2) = do
   (qs, t) <- withExtEnv x s (tiExpr e2)
   pure (qs, t)
 
--- tiExpr (ERec [] e) = tiExpr e
--- tiExpr _ = error "ERec not implemented" -- TODO
-
 ------------------------------------------------------------
 -- Code below very experimental, MASSIVE FIXME
 ------------------------------------------------------------

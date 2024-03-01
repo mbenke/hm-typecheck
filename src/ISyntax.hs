@@ -6,7 +6,6 @@ type Name = String
 data Expr
     = ELam [Arg] Expr
     | ELet Name Expr Expr
---    | ERec [Decl] Expr
     | EApp Expr Expr
     | EVar Name
     | ECon Name
