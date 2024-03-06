@@ -58,9 +58,6 @@ tiExpr exp@(ELet x e1 e2) = do
   (qs, t) <- withExtEnv x s (tiExpr e2)
   pure (qs, t)
 
-------------------------------------------------------------
--- Code below very experimental, MASSIVE FIXME
-------------------------------------------------------------
 tiExpr (EBlock stmts) = do
     env <- getEnv
     result <- go stmts
@@ -123,16 +120,6 @@ generalize (ps0, t0) = do
   info ["< reduceContext", str ps2, " subst=",str phi]
   let t2 = apply phi t1
   let typeVars =  ftv t2
-{-
-  -- we need to reduce the context again, because of equality constraints
-  (ps3, phi') <- reduceContext ps2
-  withLogging $ info ["< reduceContext 2 ", str ps3, " subst=",str phi']
-  let phi3 = phi' <> phi
-  let t3 = apply phi3 t1
-  let trivialPreds = filter (not . (nonTrivial typeVars)) ps3
-  when (not . null $ trivialPreds) $
-       withLogging $ info ["! generalize: trivial ", str trivialPreds]
--}
   return $ Forall (typeVars \\ envVars) (ps2 :=> t2)
 
 
