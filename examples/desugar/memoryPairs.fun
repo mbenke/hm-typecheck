@@ -21,10 +21,12 @@ instance Stack[a] : Ref[a];
 instance Memory[a] : Ref[a];
 id x = x;
 
+copy from to = store to (load from);
+// copy : ∀a b.(b:Ref[d], a:Ref[d]) => a -> b -> Unit
 
 m1 = {
   let x : Memory[Int];
-  let y : Memory[Int];  
+  let y : Memory[Int];
   *x = 42;
   x = y;
 
@@ -49,8 +51,10 @@ m1 = {
   *mq.second = mp.load;
   *mq.second = p;
   *x = mq.load.second.first;
+  // this works too:
+  *x = load (first(second mq));
+
 
   let mpm : Memory[Pair[Int, Memory[Pair[Int,Bool]]]];
   *mpm.second.load.first = 1;
 }
-
