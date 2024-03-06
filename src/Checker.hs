@@ -40,17 +40,11 @@ tiExpr (ECon v) = do
 -- check an application (function call)
 tiExpr e@(EApp fun arg) = do
   (ps, t1) <- tiExpr fun
-  -- info ["! EApp fun: ", str(ps :=> t1)]
   (qs, t2) <- tiExpr arg
-  -- info ["! EApp arg: ", str(qs :=> t2)]
   freshname <- tcmDeplete
   let tr = TVar freshname
   unify t1 (t2 :-> tr) `wrapError` e
-  s <- getSubst
-  let tr' = apply s tr
-  let preds = apply s (ps ++ qs)
-  -- info ["! EApp res:  ", str e, " :: ", str (preds :=> tr') ]
-  pure (preds, tr')
+  return (ps++qs, tr)
 
 tiExpr exp@(ELet x e1 e2) = do
   s <- tiBind x [] e1
