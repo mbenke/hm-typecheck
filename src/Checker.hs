@@ -113,10 +113,11 @@ generalize (ps0, t0) = do
   (ps1, t1) <- withCurrentSubst (ps0, t0)
   -- withLogging $ info ["< withCurrentSubst ", str (ps1 :=> t1)]
   ce <- gets tcsCT
-  (ps2, phi) <- reduceContext ps1
+  ps2 <- reduceContext ps1
+  phi <- getCurrentSubst
   info ["< reduceContext", str ps2, " subst=",str phi]
   let t2 = apply phi t1
-  let typeVars =  ftv t2
+  let typeVars =  ftv (ps2, t2)
   let scheme = Forall (typeVars \\ envVars) (ps2 :=> apply phi t1)
   info ["< generalize: ", str (legibleScheme scheme)]
   return scheme
