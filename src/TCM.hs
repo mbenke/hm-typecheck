@@ -111,10 +111,18 @@ withExtEnv n s ta = do
   putEnv env
   pure a
 
+getCurrentSubst :: TCM Subst
+getCurrentSubst = gets tcsSubst
+
 withCurrentSubst :: HasTypes t => t -> TCM t
 withCurrentSubst t = do
   s <- gets tcsSubst
   pure (apply s t)
+
+logCurrentSubst :: TCM ()
+logCurrentSubst = do
+  s <- getCurrentSubst
+  info["! subst = ", str s]
 
 showEnv :: Bool -> Env -> String
 showEnv withPrims env = concat . map showEntry $ Map.toList env where
@@ -161,10 +169,11 @@ getSubst = gets tcsSubst
 unify :: Type -> Type -> TCM ()
 unify t1 t2 = do s <- getSubst
                  u <- mgu (apply s t1) (apply s t2)
-                 modify(extSubst u)
+                 extSubst u
 
-extSubst   :: Subst -> TcState -> TcState
-extSubst s st = st { tcsSubst = s <> s0 } where s0 = tcsSubst st
+extSubst   :: Subst -> TCM ()
+extSubst s = modify ext where
+    ext st = st { tcsSubst = s <> tcsSubst st }
 
 clearSubst :: TCM ()
 clearSubst = modify clearS where
