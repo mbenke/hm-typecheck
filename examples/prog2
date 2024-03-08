@@ -17,5 +17,7 @@ unit = Unit;
 // store : (ref: Ref[a]) => ref -> a -> Unit;
 x6 = store mi x2;
 
+pragma log;
 copy from to = store to (load from);
+pragma nolog;
 x7 = copy siExample mi;

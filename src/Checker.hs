@@ -85,11 +85,14 @@ tiBind :: Name -> [Arg] -> Expr -> TCM Scheme
 tiBind n args e = do
   env <- getEnv
   as <- addArgs args
-  (ps, t0) <- tiExpr e
-  info ["! tiBind ", show ps, " |- ", str e, " :: ", str t0 ]
-  tas <- withCurrentSubst as
+  (ps0, t0) <- tiExpr e
+  let t1 = foldr (:->) t0 as
+  t <- withCurrentSubst t1
+  ps <- withCurrentSubst ps0
+  info ["! tiBind ", show ps, " |- ", str e, " :: ", str t ]
   putEnv env
-  generalize (ps, foldr (:->) t0 tas)
+  -- clearSubst
+  generalize (ps, t)
 
 tiArg :: Arg -> TCM (Name, Type)
 tiArg s = do
@@ -114,7 +117,9 @@ generalize (ps0, t0) = do
   info ["< reduceContext", str ps2, " subst=",str phi]
   let t2 = apply phi t1
   let typeVars =  ftv t2
-  return $ Forall (typeVars \\ envVars) (ps2 :=> t2)
+  let scheme = Forall (typeVars \\ envVars) (ps2 :=> apply phi t1)
+  info ["< generalize: ", str (legibleScheme scheme)]
+  return scheme
 
 
 isFreeInEnv :: Tyvar -> TCM Bool
@@ -356,11 +361,15 @@ reduceContext :: [Pred] -> TCM ([Pred], Subst)
 reduceContext preds = do
   info ["> reduceContext ", str preds]
   let (ps1, subst1) = (preds, emptySubst)
+
   (ps2,subst2) <- toHnfs ps1 subst1
   info ["< toHnfs ", str ps2, " subst2=",str subst2]
+  extSubst subst2
+  logCurrentSubst
   (ps3, subst3) <- simplifyM (apply subst2 ps2)
   info ["< simplifyM ", str ps3, " subst3=",str subst3]
   let subst = subst2 <> subst3
+  extSubst subst
   return (apply subst ps3, subst)
 
 -- typeOf :: Expr -> Either String Scheme
