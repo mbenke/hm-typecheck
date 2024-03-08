@@ -215,7 +215,8 @@ tiInstance inst = do
 
 
 tiProg :: Prog -> TCM ()
-tiProg (Prog decls) = mapM_ tiDecl decls
+tiProg (Prog decls) = mapM_ cleanTiDecl decls where
+    cleanTiDecl d = clearSubst >> tiDecl d
 
 ---- Classes
 

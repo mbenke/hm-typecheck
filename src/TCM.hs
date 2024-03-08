@@ -166,6 +166,10 @@ unify t1 t2 = do s <- getSubst
 extSubst   :: Subst -> TcState -> TcState
 extSubst s st = st { tcsSubst = s <> s0 } where s0 = tcsSubst st
 
+clearSubst :: TCM ()
+clearSubst = modify clearS where
+    clearS st = st { tcsSubst = emptySubst }
+
 -- Use more legible names for quantified variables
 -- such as    forall a  b . a  -> b  -> a
 -- instead of forall u3 v1. u3 -> v1 -> u3
