@@ -251,29 +251,27 @@ nonTrivial :: [Tyvar] -> Pred -> Bool
 nonTrivial tvs (InCls _ _ (TVar a)) | not (elem a tvs) = False
 nonTrivial tvs _ = True
 
-simplifyM :: [Pred] -> TCM([Pred], Subst)
+simplifyM :: [Pred] -> TCM [Pred]
 simplifyM ps = do
   info ["> simplifyM ", str ps]
-  -- setLogging (length ps > 0)
+  ps' <- withCurrentSubst ps
   ce <- gets tcsIT
-  loop ce [] ps emptySubst where
-    loop :: InstTable -> [Pred] -> [Pred] -> Subst -> TCM([Pred], Subst)
-    loop ce rs ps subst = do
-      let ps' = apply subst ps
-      info ["! loop", str ps, " subst=",str subst, " ps'=", str ps']
-      loop' ce rs ps' subst
-    loop' ce rs [] subst = do
-                 pure (rs, subst)
-    loop' ce rs (p:ps) subst
-             | elem p ps = loop ce rs ps subst
+  loop ce [] ps where
+    loop :: InstTable -> [Pred] -> [Pred] -> TCM [Pred]
+    loop ce rs [] = return rs
+    loop ce rs (p:ps)
+             | elem p ps = loop ce rs ps
              | (t :~: u) <- p = case (mgu t u) of
-                                  Left _ -> loop ce (p:rs) ps subst
-                                  Right phi -> loop ce rs (apply subst ps) (phi <> subst)
-             | otherwise = case entailM ce (rs++ps) (apply subst p) of
-                 Just phi -> do
+                                  Left _ -> loop ce (p:rs) ps
+                                  Right phi -> do
+                                    extSubst phi
+                                    loop ce rs ps
+             | otherwise = case entailM ce (rs++ps) p of
+                    Just phi -> do
                              info ["< entailM(", str p, ") subst=",str phi]
-                             loop ce rs (apply phi ps) (phi <> subst)
-                 Nothing -> loop ce (p:rs) ps subst
+                             extSubst phi
+                             loop ce rs ps
+                    Nothing -> loop ce (p:rs) ps
 
 entailM :: InstTable -> [Pred] -> Pred -> Maybe Subst
 entailM ce ps (TVar a :~: u) = Just (a +-> u)
@@ -358,20 +356,19 @@ inHnf (InCls c args t) = hnf t where
 inHnf (_ :~: _) = False
 
 
-reduceContext :: [Pred] -> TCM ([Pred], Subst)
+reduceContext :: [Pred] -> TCM [Pred]
 reduceContext preds = do
   info ["> reduceContext ", str preds]
-  let (ps1, subst1) = (preds, emptySubst)
-
-  (ps2,subst2) <- toHnfs ps1 subst1
+  -- let (ps1, subst1) = (preds, emptySubst)
+  subst1 <- getCurrentSubst
+  (ps2,subst2) <- toHnfs preds subst1
   info ["< toHnfs ", str ps2, " subst2=",str subst2]
   extSubst subst2
   logCurrentSubst
-  (ps3, subst3) <- simplifyM (apply subst2 ps2)
-  info ["< simplifyM ", str ps3, " subst3=",str subst3]
-  let subst = subst2 <> subst3
-  extSubst subst
-  return (apply subst ps3, subst)
+  ps3 <- simplifyM (apply subst2 ps2)
+  subst <- getCurrentSubst
+  info ["< simplifyM ", str ps3, " subst3=",str subst]
+  return ps3
 
 -- typeOf :: Expr -> Either String Scheme
 typeOf exp = do
