@@ -293,13 +293,16 @@ entailM ce ps p = case elem p ps of
 
 -- Transform equality constraints (such as a ~ Memory[Int]) into substitution
 -- so that [b1:Ref[Int],b1 ~ Memory[Int]] becomes ([Memory[Int]:Ref[Int], b1 +-> Int)
-simplifyEqualities :: [Pred] -> TCM ([Pred], Subst)
-simplifyEqualities ps = go [] emptySubst ps where
-    go rs subst [] = return (rs, subst)
-    go rs subst ((t :~: u):ps) = do
+simplifyEqualities :: [Pred] -> TCM [Pred]
+simplifyEqualities ps = go [] ps where
+    go rs [] = return rs
+    go rs ((t :~: u):ps) = do
       phi <- mgu t u
-      go (apply phi rs) (phi <> subst) (apply phi ps)
-    go rs subst (p:ps) = go (p:rs) subst ps
+      extSubst phi
+      ps' <- withCurrentSubst ps
+      rs' <- withCurrentSubst rs
+      go rs' ps'
+    go rs (p:ps) = go (p:rs) ps
 
 byInstM :: InstTable -> Pred -> Maybe ([Pred], Subst)
 byInstM ce p@(InCls i as t) = msum [tryInst it | it <- insts ce i] where
@@ -313,13 +316,14 @@ byInstM ce p@(InCls i as t) = msum [tryInst it | it <- insts ce i] where
 -- Reducing contexts to hnf (head-normal form)
 -- e.g. (Pair[Int, b] : Eq) ~> (Int:Eq, b:Eq) ~> (b:Eq)
 
-toHnf :: Pred -> Subst -> TCM([Pred], Subst)
-toHnf (t :~: u) subst = do
+toHnf :: Pred -> TCM [Pred]
+toHnf (t :~: u) = do
   subst1 <- mgu t u
-  return ([], subst1 <> subst)
+  extSubst subst1
+  return []
 
-toHnf pred subst
-  | inHnf pred = return ([pred], subst)
+toHnf pred
+  | inHnf pred = return [pred]
   | otherwise = do
       info ["> toHnf ", str pred]
       ce <- gets tcsIT
@@ -327,26 +331,26 @@ toHnf pred subst
         Nothing -> throwError ("no instance of " ++ str pred)
         Just (preds, subst') -> do
             info["! toHnf <  byInstM ", str preds, " subst'=", str subst']
-            toHnfs preds (subst' <> subst)
+            extSubst subst'
+            toHnfs preds
 
-toHnfs :: [Pred] -> Subst -> TCM([Pred], Subst)
-toHnfs ps subst = do
+toHnfs :: [Pred] -> TCM [Pred]
+toHnfs ps = do
+  subst <- getCurrentSubst
   info ["> toHnfs ", str ps, " subst=",str subst]
-  (ps1, subst1) <- simplifyEqualities ps
-  info ["< simpEqs ", str ps1, " subst1=",str subst1]
-  let subst2 = subst1 <> subst
-  let ps2 = apply subst2 ps1
-  info  ["! toHnfs > toHnfs' ", str ps2, " subst2=",str subst2]
-  toHnfs' ps2 subst2
+  ps2 <- simplifyEqualities ps >>= withCurrentSubst
+  info ["< simpEqs ", str ps2]
+  info  ["! toHnfs > toHnfs' ", str ps2]
+  toHnfs' ps2
 
-toHnfs' [] subst = return ([], subst)
-toHnfs' preds@(p:ps) subst = do
-  info ["> toHnfs' ", str preds, " subst=",str subst]
-  (rs1, subst') <- toHnf p subst
-  let ps' = apply subst' ps           -- important
-  (rs2, subst'') <- toHnfs' ps' subst'
-  info ["< toHnfs' ", str (rs1++rs2, subst)]
-  return (rs1 ++ rs2, subst'')
+toHnfs' [] = return []
+toHnfs' preds@(p:ps) = do
+  info ["> toHnfs' ", str preds]
+  rs1 <- toHnf p
+  ps' <- withCurrentSubst ps           -- important
+  rs2 <- toHnfs' ps'
+  info ["< toHnfs' ", str (rs1++rs2)]
+  return (rs1 ++ rs2)
 
 
 inHnf :: Pred -> Bool
@@ -359,13 +363,10 @@ inHnf (_ :~: _) = False
 reduceContext :: [Pred] -> TCM [Pred]
 reduceContext preds = do
   info ["> reduceContext ", str preds]
-  -- let (ps1, subst1) = (preds, emptySubst)
-  subst1 <- getCurrentSubst
-  (ps2,subst2) <- toHnfs preds subst1
-  info ["< toHnfs ", str ps2, " subst2=",str subst2]
-  extSubst subst2
+  ps2 <- (toHnfs preds >>= withCurrentSubst)
+  info ["< toHnfs ", str ps2]
   logCurrentSubst
-  ps3 <- simplifyM (apply subst2 ps2)
+  ps3 <- simplifyM ps2
   subst <- getCurrentSubst
   info ["< simplifyM ", str ps3, " subst3=",str subst]
   return ps3
