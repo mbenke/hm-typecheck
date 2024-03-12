@@ -30,7 +30,7 @@ bool = TCon "Bool" []
 
 unitT = TCon "Unit" []
 stackT a = TCon "Stack" [a]
-       
+
 instance Show Type where
   showsPrec d (TVar t) = showString t
   showsPrec d (u :-> v) = showParen (d > arr_prec) $
@@ -53,7 +53,8 @@ instance Show t => Show (Qual t) where
       showps = showString $ intercalate ", " (map show ps)
 
 instance Show Pred where
-  showsPrec d (IsIn c t) = showClass c . (' ':) . showsPrec 11 t
+  -- showsPrec d (IsIn c t) = showClass c . (' ':) . showsPrec 11 t
+  showsPrec d (IsIn c t) = showsPrec 1 t . showChar ':' . showClass c
   showsPrec d (InCls c as t) = showsPrec 1 t . showChar ':' . showClass c . showList as
   showsPrec d (t :~: u) = showParen (d>0) $ showsPrec 1 t . (" ~ "++) . showsPrec 1 u
 
