@@ -251,6 +251,7 @@ nonTrivial :: [Tyvar] -> Pred -> Bool
 nonTrivial tvs (InCls _ _ (TVar a)) | not (elem a tvs) = False
 nonTrivial tvs _ = True
 
+-- simplify is not needed if we don't have superclasses
 simplifyM :: [Pred] -> TCM [Pred]
 simplifyM ps = do
   info ["> simplifyM ", str ps]
@@ -365,11 +366,7 @@ reduceContext preds = do
   info ["> reduceContext ", str preds]
   ps2 <- (toHnfs preds >>= withCurrentSubst)
   info ["< toHnfs ", str ps2]
-  logCurrentSubst
-  ps3 <- simplifyM ps2
-  subst <- getCurrentSubst
-  info ["< simplifyM ", str ps3, " subst3=",str subst]
-  return ps3
+  return ps2
 
 -- typeOf :: Expr -> Either String Scheme
 typeOf exp = do
