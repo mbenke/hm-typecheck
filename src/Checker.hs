@@ -3,7 +3,7 @@ module Checker where
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.State
-import Data.List((\\))
+import Data.List((\\), nub)
 import qualified Data.Map as Map
 
 import ISyntax
@@ -247,51 +247,6 @@ getInsts n = do
     Just is -> pure is
     Nothing -> throwError$ "unknown class: " ++  n
 
-nonTrivial :: [Tyvar] -> Pred -> Bool
-nonTrivial tvs (InCls _ _ (TVar a)) | not (elem a tvs) = False
-nonTrivial tvs _ = True
-
--- simplify is not needed if we don't have superclasses
-simplifyM :: [Pred] -> TCM [Pred]
-simplifyM ps = do
-  info ["> simplifyM ", str ps]
-  ps' <- withCurrentSubst ps
-  ce <- gets tcsIT
-  loop ce [] ps where
-    loop :: InstTable -> [Pred] -> [Pred] -> TCM [Pred]
-    loop ce rs [] = return rs
-    loop ce rs (p:ps)
-             | elem p ps = loop ce rs ps
-             | (t :~: u) <- p = case (mgu t u) of
-                                  Left _ -> loop ce (p:rs) ps
-                                  Right phi -> do
-                                    extSubst phi
-                                    loop ce rs ps
-             | otherwise = case entailM ce (rs++ps) p of
-                    Just phi -> do
-                             info ["< entailM(", str p, ") subst=",str phi]
-                             extSubst phi
-                             loop ce rs ps
-                    Nothing -> loop ce (p:rs) ps
-
-entailM :: InstTable -> [Pred] -> Pred -> Maybe Subst
-entailM ce ps (TVar a :~: u) = Just (a +-> u)
-entailM ce ps (t :~: u) = case (mgu t u) of
-                                  Left _ -> Nothing
-                                  Right phi -> Just phi
-entailM ce ps p = case elem p ps of
-                    True -> Just emptySubst
-                    False -> do
-                      (qs, u) <- byInstM ce p
-                      go qs u where
-                      go :: [Pred] -> Subst -> Maybe Subst
-                      go []     u = pure u
-                      go (q:qs) u  = do
-                                   u' <- entailM ce ps (apply u q)
-                                   go qs (u <> u')
-
--- entailM ce ps p = if elem p ps then Just emptySubst else Nothing
-
 -- Transform equality constraints (such as a ~ Memory[Int]) into substitution
 -- so that [b1:Ref[Int],b1 ~ Memory[Int]] becomes ([Memory[Int]:Ref[Int], b1 +-> Int)
 simplifyEqualities :: [Pred] -> TCM [Pred]
@@ -366,7 +321,7 @@ reduceContext preds = do
   info ["> reduceContext ", str preds]
   ps2 <- (toHnfs preds >>= withCurrentSubst)
   info ["< toHnfs ", str ps2]
-  return ps2
+  return (nub ps2)
 
 -- typeOf :: Expr -> Either String Scheme
 typeOf exp = do
