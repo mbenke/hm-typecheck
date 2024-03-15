@@ -15,6 +15,7 @@ data Prog = Prog [Decl]
 
 data Expr
     = EBlock [Stmt]
+    | ETyped Expr CType
     | ELam [Arg] Expr
     | ELet LIdent Expr Expr
     | EApp Expr Expr

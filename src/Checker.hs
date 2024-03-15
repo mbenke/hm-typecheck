@@ -58,6 +58,11 @@ tiExpr exp@(ELet x e1 e2) = do
   (qs, t) <- withExtEnv x s (tiExpr e2)
   pure (qs, t)
 
+tiExpr (ETyped e t) = do
+  (ps, t1) <- tiExpr e
+  unify t t1
+  return (ps, t1)
+
 tiExpr (EBlock stmts) = do
     env <- getEnv
     result <- go stmts

@@ -51,6 +51,10 @@ run = do
 
 -- Lists, pairs, equality
 prog1 = [prog|
+     id x = x;
+     idInt x = x:Int;
+     answer = 42:Int;
+
      instance Int : Eq;
      instance Bool : Eq;
      instance a : Eq => List[a] : Eq;

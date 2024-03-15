@@ -42,6 +42,7 @@ instance Desugar C.Expr I.Expr where
   desugar (C.EVar i) = I.EVar (desugar i)
   desugar (C.ECon i) = I.ECon (desugar i)
   desugar (C.EInt n) = I.EInt n
+  desugar (C.ETyped e t)   = I.ETyped (desugar e) (desugar t)
 
 instance Desugar C.Decl I.Decl where
   desugar (C.TypeDecl ct rhs) = I.TypeDecl (desugar ct) (desugar rhs)

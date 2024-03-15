@@ -108,6 +108,7 @@ Prog : ListDecl { AbsFun.Prog $1 }
 Expr :: { AbsFun.Expr }
 Expr
   : '{' ListStmt '}' { AbsFun.EBlock $2 }
+  | Expr1 ':' CType { AbsFun.ETyped $1 $3 }
   | '\\' ListArg '->' Expr { AbsFun.ELam $2 $4 }
   | 'let' LIdent '=' Expr 'in' Expr { AbsFun.ELet $2 $4 $6 }
   | Expr1 { $1 }

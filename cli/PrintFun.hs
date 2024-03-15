@@ -149,6 +149,7 @@ instance Print AbsFun.Prog where
 instance Print AbsFun.Expr where
   prt i = \case
     AbsFun.EBlock stmts -> prPrec i 0 (concatD [doc (showString "{"), prt 0 stmts, doc (showString "}")])
+    AbsFun.ETyped expr ctype -> prPrec i 0 (concatD [prt 1 expr, doc (showString ":"), prt 0 ctype])
     AbsFun.ELam args expr -> prPrec i 0 (concatD [doc (showString "\\"), prt 0 args, doc (showString "->"), prt 0 expr])
     AbsFun.ELet lident expr1 expr2 -> prPrec i 0 (concatD [doc (showString "let"), prt 0 lident, doc (showString "="), prt 0 expr1, doc (showString "in"), prt 0 expr2])
     AbsFun.EApp expr1 expr2 -> prPrec i 1 (concatD [prt 1 expr1, prt 2 expr2])

@@ -11,6 +11,7 @@ data Expr
     | ECon Name              -- value constructor
     | EInt Integer           -- integer literal
     | EBlock [Stmt String]   -- desugared statements annotated with their source form
+    | ETyped Expr Type
   deriving Eq
 
 -- data Arg = UArg LIdent

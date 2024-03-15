@@ -48,6 +48,7 @@ instance Desugar C.Expr I.Expr where
   desugar (C.ECon i)       = I.ECon (desugar i)
   desugar (C.EInt n)       = I.EInt n
   desugar (C.EBlock stmts) = I.EBlock (map desugar stmts)
+  desugar (C.ETyped e t)   = I.ETyped (desugar e) (desugar t)
   desugar e = error $ "C.Expr.desugar unimplemented for  " ++ show e
 
 instance Desugar C.Stmt (I.Stmt String) where
@@ -71,13 +72,13 @@ desugarLhs e = desugar e
 desugarRhs :: C.Expr -> I.Expr
 desugarRhs e = go e where
     go e@(C.EVar i) = load (I.EVar (desugar i))
-    go e@(C.EStar i) = load (desugarLhs e) 
+    go e@(C.EStar i) = load (desugarLhs e)
     go e@(C.EApp f a) = I.EApp (desugarLhs f) (desugarRhs a)
     go e@(C.EMet a f) = load $ I.EApp (desugar f) (desugar a)
-    go e@(C.EIdx a i) = load (desugarLhs e) 
+    go e@(C.EIdx a i) = load (desugarLhs e)
     go e = desugar e
     load = I.EApp (I.EVar "load")
-    
+
 
 instance Desugar C.Decl I.Decl where
   desugar (C.TypeDecl ct rhs)  = I.TypeDecl (desugar ct) (desugar rhs)

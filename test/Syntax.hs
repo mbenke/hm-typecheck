@@ -19,6 +19,9 @@ token UIdent (upper (letter | digit | '_')*) ;
 token LIdent (lower (letter | digit | '_')*) ;
 
 Prog . Prog ::= [Decl];
+
+EBlock . Expr ::= "{" [Stmt] "}";
+ETyped . Expr ::= Expr1 ":" CType;
 ELam . Expr ::= "\\" [Arg] "->" Expr ;
 ELet . Expr ::= "let" LIdent "=" Expr "in" Expr;
 EApp . Expr1 ::= Expr1 Expr2 ;
@@ -29,6 +32,12 @@ coercions Expr 2;
 
 UArg . Arg ::= LIdent;
 separator Arg "";
+
+SExpr   . Stmt ::= Expr;
+SAssign . Stmt ::= Expr "=" Expr;
+SAlloc  . Stmt ::= "let" LIdent ":" CType;
+SInit   . Stmt ::= "let" LIdent "=" Expr;
+separator Stmt ";";
 
 TypeDecl. Decl ::= "type" CType TyDeRhs;
 ValDecl. Decl ::= LIdent ":" QType;
