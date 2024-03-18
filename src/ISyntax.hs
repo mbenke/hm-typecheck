@@ -20,9 +20,9 @@ data Expr
 type Arg = Name
 
 data Stmt ann             -- ann - annotation (e.g. stmt before desugar)
-    = SExpr ann Expr 
+    = SExpr ann Expr
 --    | SAssign ann Expr Expr
-    | SAlloc ann Name Type 
+    | SAlloc ann Name Type
     | SInit ann Name Expr
   deriving (Eq)
 
@@ -64,6 +64,12 @@ instance Show Expr where
   showsPrec d (EBlock stmts) = showString "{ " .
                                showString ( intercalate "; " (map show stmts)) .
                                showString "}"
+  showsPrec d (ETyped e t) = showParen (d > typ_prec) $
+             showsPrec 0 e .
+             showString " : " . showsPrec 10 t
+         where typ_prec = 2
+
+
 showExpr :: Expr -> String
 -- showExpr (ELam vs e) = concat ["\\", unwords vs, " -> ", showExpr e] where
 -- showExpr (EVar v) = v
