@@ -51,10 +51,12 @@ instance Show Expr where
              showsPrec (ap_prec+1) e2
          where ap_prec = 10
 
-  showsPrec d (ELam vs e) = showParen (d > lam_prec) $
-             showString "\\" . showString(unwords vs) . showString " -> " .
+  showsPrec d (ELam args e) = showParen (d > lam_prec) $
+             showString "\\" . showArgs args . showString " -> " .
              showsPrec (lam_prec) e
-         where lam_prec = 1
+         where
+           lam_prec = 1
+           showArgs = showString . unwords  . map showArg
 
   showsPrec d (ELet x e1 e2) = showParen (d > let_prec) $
              showString "let " . showString x . showString "= " . showsPrec 0 e1 .
@@ -83,6 +85,18 @@ showExpr e = show e
 instance Show (Stmt ann) where
     show (SExpr _ e) = showExpr e
     show (SAlloc _ x t) = concat ["let ",  x, " : ", show t]
+
+
+showArg :: Arg -> String
+showArg a = a
+
+showDecl (ValDecl n qt) = unwords [n, ":", show qt]
+showDecl (ValBind n as e) = unwords [n, sas, "=", show e] where
+    sas = unwords (map showArg as)
+showDecl (ClsDecl pred mdecls) = unwords ["class", show pred, "{",  showDecls mdecls, "}"] where
+    showDecls ds = intercalate "; " (map showDecl ds)
+showDecl d = show d
+
 
 class HasFreeVars a where
     freeVars :: a -> [Name]
