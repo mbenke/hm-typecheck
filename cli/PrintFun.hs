@@ -163,6 +163,7 @@ instance Print AbsFun.Expr where
 instance Print AbsFun.Arg where
   prt i = \case
     AbsFun.UArg lident -> prPrec i 0 (concatD [prt 0 lident])
+    AbsFun.TArg lident ctype -> prPrec i 0 (concatD [doc (showString "("), prt 0 lident, doc (showString ":"), prt 0 ctype, doc (showString ")")])
 
 instance Print [AbsFun.Arg] where
   prt _ [] = concatD []

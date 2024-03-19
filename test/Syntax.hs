@@ -31,6 +31,7 @@ EInt . Expr2 ::= Integer;
 coercions Expr 2;
 
 UArg . Arg ::= LIdent;
+TArg . Arg ::= "(" LIdent ":" CType ")";
 separator Arg "";
 
 SExpr   . Stmt ::= Expr;

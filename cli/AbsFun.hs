@@ -27,7 +27,7 @@ data Expr
     | EInt Integer
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
-data Arg = UArg LIdent
+data Arg = UArg LIdent | TArg LIdent CType
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Stmt

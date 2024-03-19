@@ -52,7 +52,8 @@ run = do
 -- Lists, pairs, equality
 prog1 = [prog|
      id x = x;
-     idInt x = x:Int;
+     idInt1 x = x:Int;
+     idInt2 (x:Int) = x;
      answer = 42:Int;
 
      instance Int : Eq;

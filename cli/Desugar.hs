@@ -36,8 +36,9 @@ instance Desugar C.LIdent Name where
 instance Desugar C.UIdent Name where
   desugar (UIdent s) = s
 
-instance Desugar C.Arg Name where
-  desugar (C.UArg x) = desugar x
+instance Desugar C.Arg I.Arg where
+  desugar (C.UArg x) = I.UArg (desugar x)
+  desugar (C.TArg x t) = I.TArg (desugar x) (desugar t)
 
 instance Desugar C.Expr I.Expr where
   desugar (C.ELam args e)  = I.ELam (map desugar args) (desugar e)

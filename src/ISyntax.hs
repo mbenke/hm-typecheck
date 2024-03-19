@@ -14,10 +14,7 @@ data Expr
     | ETyped Expr Type
   deriving Eq
 
--- data Arg = UArg LIdent
---  deriving (Eq, Ord, Show, Read)
-
-type Arg = Name
+data Arg = UArg Name | TArg Name Type deriving Eq
 
 data Stmt ann             -- ann - annotation (e.g. stmt before desugar)
     = SExpr ann Expr
@@ -86,9 +83,11 @@ instance Show (Stmt ann) where
     show (SExpr _ e) = showExpr e
     show (SAlloc _ x t) = concat ["let ",  x, " : ", show t]
 
+instance Show Arg where show = showArg
 
 showArg :: Arg -> String
-showArg a = a
+showArg (UArg s) = s
+showArg (TArg s t) = concat["(",s,":",show t,")"]
 
 showDecl (ValDecl n qt) = unwords [n, ":", show qt]
 showDecl (ValBind n as e) = unwords [n, sas, "=", show e] where
@@ -97,6 +96,9 @@ showDecl (ClsDecl pred mdecls) = unwords ["class", show pred, "{",  showDecls md
     showDecls ds = intercalate "; " (map showDecl ds)
 showDecl d = show d
 
+argName :: Arg -> Name
+argName (UArg s) = s
+argName (TArg s t) = s
 
 class HasFreeVars a where
     freeVars :: a -> [Name]
@@ -104,6 +106,6 @@ class HasFreeVars a where
 instance HasFreeVars Expr where
     freeVars (EVar n) = [n]
     freeVars (EApp e1 e2) = union (freeVars e1) (freeVars e2)
-    freeVars (ELam vs e) = freeVars e \\ vs
+    freeVars (ELam args e) = freeVars e \\ map argName args
     freeVars _ = [] -- FIXME
     -- freeVars e = error("freeVars unimplemented for: " ++show e)

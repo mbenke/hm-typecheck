@@ -106,9 +106,10 @@ tiBind n args e = do
   generalize (ps, t)
 
 tiArg :: Arg -> TCM (Name, Type)
-tiArg s = do
+tiArg (UArg name) = do
   a <- tcmDeplete
-  pure (s, TVar a)
+  pure (name, TVar a)
+tiArg (TArg name t) = pure (name, t)
 
 addArgs :: [Arg] -> TCM [Type]
 addArgs args = do

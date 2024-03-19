@@ -129,7 +129,9 @@ Expr2
   | '(' Expr ')' { $2 }
 
 Arg :: { AbsFun.Arg }
-Arg : LIdent { AbsFun.UArg $1 }
+Arg
+  : LIdent { AbsFun.UArg $1 }
+  | '(' LIdent ':' CType ')' { AbsFun.TArg $2 $4 }
 
 ListArg :: { [AbsFun.Arg] }
 ListArg : {- empty -} { [] } | Arg ListArg { (:) $1 $2 }
