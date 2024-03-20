@@ -26,8 +26,10 @@ type TypeInfo = (Arity, [Name])    -- arity and constructor names
 type ClassTable = Table ClassInfo
 type ClassInfo = (Arity, [Method]) -- number of weak parameters and method names
 type InstTable = Table [Inst]      -- instances list for a given class name
+type SpecTable = Table [Specialisation]
 type Arity = Int
 type Method = Name
+type Specialisation = (Type, [Arg], Expr)
 
 data TcState = TcState {
  tcsLogEnabled :: Bool,
@@ -36,9 +38,11 @@ data TcState = TcState {
  tcsTT :: TypeTable,               -- type constructors
  tcsCT :: ClassTable,              -- classes
  tcsIT :: InstTable,               -- class instances
+ tcsSpec :: SpecTable,             -- monomorphic specialisations
  tcsNS :: NS,                      -- fresh name supply
  tcsSubst :: Subst                 -- current substitution, needed for type reconstruction
                                    -- may not be needed when only type checking
+
 }
 
 initState = init TcState
@@ -48,6 +52,7 @@ initState = init TcState
   , tcsTT = primTT
   , tcsCT = Map.empty
   , tcsIT = Map.empty
+  , tcsSpec = Map.empty
   , tcsNS = namePool
   , tcsSubst = emptySubst
   } where
