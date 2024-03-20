@@ -127,16 +127,16 @@ logCurrentSubst = do
 showEnv :: Bool -> Env -> String
 showEnv withPrims env = concat . map showEntry $ Map.toList env where
     showEntry (n, s)
-        | not(isPrimitive n) || withPrims = n ++ " : " ++ str (legibleScheme s) ++ "\n"
+        | not(nameIsPrimitive n) || withPrims = n ++ " : " ++ str (legibleScheme s) ++ "\n"
         | otherwise = ""
-    isPrimitive n = isJust (Map.lookup n primEnv)
+
+nameIsPrimitive n = isJust (Map.lookup n primEnv)
 
 showSmallEnv :: [(Name,Scheme)] -> String
-showSmallEnv env = intercalate ", " [showEntry (n,s) | (n,s) <- env, not(isPrimitive n)]
+showSmallEnv env = intercalate ", " [showEntry (n,s) | (n,s) <- env, not(nameIsPrimitive n)]
     where
     withPrims = False
     showEntry (n, s) = n ++ " : " ++ str (legibleScheme s)
-    isPrimitive n = isJust (Map.lookup n primEnv)
 
 
 askType :: Name -> TCM Scheme
