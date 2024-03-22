@@ -22,7 +22,7 @@ putStrV v s = when (v > 1) $ putStrLn s
 
 
 runFile :: Verbosity -> FilePath -> IO ()
-runFile v f = putStrLn f >> readFile f >>= run v 
+runFile v f = putStrLn f >> readFile f >>= run v
 
 
 run :: Verbosity -> String -> IO ()
@@ -59,7 +59,7 @@ main :: IO ()
 main = do
   args <- getArgs
   case args of
-    [] -> usage    
+    [] -> usage
     ["--help"] -> usage
     ["-"]         -> getContents >>= run 2
     "-v":fs    -> mapM_ (runFile 2) fs
@@ -79,10 +79,11 @@ checkProg' verbose prog = do
         let withPrims = False
         writeln ""
         writeln (showEnv withPrims env)
+        writeln "------------\nSpecialised:\n------------"
+        writeln (showSpecTable(tcsSpec state))
   when verbose $ do
              let history = reverse (tcsLog state)
-             hrule
-             putStrLn "History:"
+             writeln "------------\nHistory:\n------------"
              mapM_ putStrLn history
 
 writeln = putStrLn

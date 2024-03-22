@@ -1,9 +1,9 @@
-{-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Checker where
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.State
-import Data.List((\\), nub)
+import Data.List((\\), nub, intercalate)
 import qualified Data.Map as Map
 
 import ISyntax
@@ -170,7 +170,7 @@ tiDecl (TypeDecl typ@(TCon name args) alts) = do
   let consNames = map fst constructors
   let arity = length args
   let typeInfo = (arity, consNames)
-  modify(addTypeInfo name typeInfo)
+  modify (addTypeInfo name typeInfo)
   where
       addCon (name, typ) = extEnv name typ
 
@@ -233,8 +233,156 @@ tiInstance inst = do
 
 
 tiProg :: Prog -> TCM ()
-tiProg (Prog decls) = mapM_ cleanTiDecl decls where
+tiProg (Prog decls) = do
+  cleanTiDecls decls
+  -- Now all toplevel functions have types in the environment
+  tld <- buildTLD decls
+  case Map.lookup entrypoint tld of
+    Nothing -> return ()
+    Just def -> withLogging $ specialiseEntry entrypoint
+  where
+    cleanTiDecls = mapM_ cleanTiDecl
     cleanTiDecl d = clearSubst >> tiDecl d
+    entrypoint = "main"
+
+buildTLD :: [Decl] -> TCM TLDict
+buildTLD decls = do
+  tld <- foldM addTLD Map.empty decls
+  modify (\st -> st { tcsTLD = tld })
+  return tld
+   where
+    addTLD :: TLDict -> Decl -> TCM TLDict
+    addTLD tld (ValBind name args body) = do
+      scheme@(Forall tvs (ps :=> typ)) <- askType name
+      let typedArgs = attachTypes args (argTypes typ)
+      let def = (name, scheme, typedArgs, body)
+      return (Map.insert name def tld)
+    addTLD tld _ = return tld
+
+attachTypes :: [Arg] -> [Type] -> [Arg]
+attachTypes = zipWith typedArg where
+    typedArg (UArg name) t   = TArg name t
+    typedArg (TArg name _) t = TArg name t
+
+lookupTLD :: Name -> TCM (Maybe TLDef)
+lookupTLD name = Map.lookup name <$> gets tcsTLD
+
+{-
+specialiseEntries :: [Decl] -> [Name] -> TCM ()
+specialiseEntries decls entrypoints = do
+  tld <- buildTLD decls
+  forM_ entrypoints specialiseEntry
+-}
+
+specialiseEntry :: Name -> TCM ()
+specialiseEntry name = do
+  mdef <- lookupTLD name
+  def@(name, scheme, args, body) <- maybeToTCM  ("No definition of " ++ name) mdef
+  typ <- maybeToTCM ("Type of entry "++name++" is not monomorphic")
+         (typeOfScheme scheme)
+  warn ["! specialiseEntry ", name, " : ", str typ]
+  body' <- specialiseBody args body typ
+  info ["! new body: ", str body']
+  let newDef = ValBind name args body'
+  info ["! new def: ", str newDef]
+  addSpecialisation name typ args body'
+  return ()
+
+specialiseBody :: [Arg] -> Expr -> Type -> TCM Expr
+specialiseBody args exp etyp = do
+  env <- getEnv
+  as <- addArgs args -- FIXME
+  newBody <- specialiseExp exp (resultType etyp args)
+  putEnv env
+  return newBody
+
+resultType :: Type -> [Arg] -> Type
+resultType t [] = t
+resultType (ta :-> tr) (a:as) = resultType tr as
+resultType typ args = error (
+  "resultType: wrong number of arguments; typ="++str typ++"++args="++str args)
+specialiseExp :: Expr -> Type -> TCM Expr
+specialiseExp e@(EInt i) etyp = pure e
+specialiseExp e@(EVar n) etyp = do
+  mres <- lookupResolution n etyp
+  case mres of
+    Just exp -> return exp
+    Nothing -> specialiseFun n etyp
+specialiseExp e@(ECon n) etyp = specialiseCon n etyp
+
+specialiseExp e@(EApp fun a) etyp = do
+  (fps, ftyp) <- tiExpr fun
+  (aps, atyp) <- tiExpr a
+  warn ["! specApp ", str e,
+        " fun = ", str fun," : ", str ftyp,
+        " arg = ", str a, " : ", str atyp,
+        " target: ", str etyp
+       ]
+
+  warn ["> mgu: ",str ftyp ," ~ ", str (atyp :-> etyp)]
+  phi <- mgu ftyp (atyp :-> etyp)
+  warn ["< mgu: phi=", str phi]
+  unify ftyp (atyp :-> etyp)
+  atyp' <- withCurrentSubst atyp
+  ftyp' <- withCurrentSubst ftyp
+  warn ["! specApp - fun: ",str ftyp'," arg: ", str atyp']
+  a' <- specialiseExp a atyp'
+  f' <- specialiseExp fun ftyp'
+  return (EApp f' a')
+
+specialiseExp e etyp = do
+  warn ["FAILED to specialise ", str e]
+  return e
+
+specialiseFun :: Name -> Type -> TCM Expr
+specialiseFun f etyp = do
+  mdef <- lookupTLD f
+  case mdef of
+    Nothing -> return (EVar f) -- it's a local var
+    Just def@(_, fscheme, args, body) -> do
+      let (Forall tvs (fps :=> ftyp)) = fscheme
+      phi <- mgu ftyp etyp
+      let tvs' = apply phi (map TVar tvs)
+      let f' = specName f tvs'
+      warn ["! specFun ",f," : ", str fscheme, " to ", f', " : ", str etyp]
+      addResolution f etyp (EVar f')
+      def'@(name', typ', args', body') <- specialiseDef  f' def etyp
+      let newDef = ValBind name' args' body'
+      warn ["! specFun new def: ", show newDef]
+      addSpecialisation name' etyp args' body'
+      return (EVar f')
+
+specialiseDef :: Name -> TLDef -> Type -> TCM TLDef
+specialiseDef name' (_, _, args, body) etyp = do
+  let args' = attachTypes args (argTypes etyp)
+  let scheme' = monotype etyp
+  let etyp' = resultType etyp args
+  env <- getEnv
+  as <- addArgs args'
+  body' <- specialiseExp body etyp'
+  putEnv env
+  return (name', scheme', args', body')
+
+specialiseCon :: Name -> Type -> TCM Expr
+specialiseCon f t = do
+  fscheme@(Forall tvs (fps :=> ftyp)) <- askType f
+  phi <- mgu ftyp t
+  let tvs' = apply phi (map TVar tvs)
+  let f' = specName f tvs'
+  warn ["! specCon ",f," : ", str fscheme, " to ", f', " : ", str t]
+  return (ECon f')
+
+specName :: Name -> [Type] -> Name
+specName n [] = n
+specName n ts = n ++ "<" ++ intercalate "," (map str ts) ++ ">" -- FIXME
+
+typeOfScheme :: Scheme -> Maybe Type
+typeOfScheme (Forall [] ([] :=> t)) = Just t
+typeOfScheme _ = Nothing
+
+maybeToTCM :: String -> Maybe a -> TCM a
+maybeToTCM msg Nothing = throwError msg
+maybeToTCM _ (Just a) = pure a
 
 ---- Classes
 
@@ -298,7 +446,7 @@ toHnf pred
       case byInstM ce pred of
         Nothing -> throwError ("no instance of " ++ str pred)
         Just (preds, subst') -> do
-            info["! toHnf <  byInstM ", str preds, " subst'=", str subst']
+            info ["! toHnf <  byInstM ", str preds, " subst'=", str subst']
             extSubst subst'
             toHnfs preds
 

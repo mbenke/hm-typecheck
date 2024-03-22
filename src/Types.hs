@@ -17,7 +17,7 @@ type Class = String
 type Inst = Qual Pred
 
 data Type = TCon String [Type] {- | Type :-> Type -} | TVar Tyvar
-  deriving Eq
+  deriving (Eq, Ord)
 
 
 pattern TInt = TCon "Int" []

@@ -32,6 +32,7 @@ type Arity = Int
 type Method = Name
 type TLDef = (Name, Scheme, [Arg], Expr)
 type Specialisation = (Name, Type, [Arg], Expr)
+type ResolutionEnv = Map.Map (Name, Type) Expr
 
 data TcState = TcState {
  tcsLogEnabled :: Bool,
@@ -40,7 +41,9 @@ data TcState = TcState {
  tcsTT :: TypeTable,               -- type constructors
  tcsCT :: ClassTable,              -- classes
  tcsIT :: InstTable,               -- class instances
+ tcsTLD :: TLDict,                 -- toplevel definitions
  tcsSpec :: SpecTable,             -- monomorphic specialisations
+ tcsREnv :: ResolutionEnv,
  tcsNS :: NS,                      -- fresh name supply
  tcsSubst :: Subst                 -- current substitution, needed for type reconstruction
                                    -- may not be needed when only type checking
@@ -54,7 +57,9 @@ initState = init TcState
   , tcsTT = primTT
   , tcsCT = Map.empty
   , tcsIT = Map.empty
+  , tcsTLD = Map.empty
   , tcsSpec = Map.empty
+  , tcsREnv = Map.empty
   , tcsNS = namePool
   , tcsSubst = emptySubst
   } where
@@ -69,6 +74,7 @@ class ToStr a where
 instance {-# OVERLAPPABLE  #-} Show a => ToStr a where str = show
 instance {-# OVERLAPPING   #-} ToStr String where str = id
 instance {-# OVERLAPPING   #-} ToStr Expr where str = showExpr
+instance {-# OVERLAPPING   #-} ToStr Decl where str = showDecl
 instance {-# OVERLAPPING   #-} ToStr InstTable where str = unlines . map show . Map.toList
 instance MonadFail Identity where
   fail = error
@@ -136,6 +142,13 @@ showEnv withPrims env = concat . map showEntry $ Map.toList env where
     showEntry (n, s)
         | not(nameIsPrimitive n) || withPrims = n ++ " : " ++ str (legibleScheme s) ++ "\n"
         | otherwise = ""
+
+showSpecTable :: SpecTable -> String
+showSpecTable table = unlines . map showSpecs $ Map.toList table where
+    showSpecs :: (Name, [Specialisation]) -> String
+    showSpecs (n, specs) = intercalate "\n" (map showEntry specs)
+    showEntry :: Specialisation -> String
+    showEntry (name, typ, args, body) = showDecl (ValBind name args body)
 
 nameIsPrimitive n = isJust (Map.lookup n primEnv)
 
@@ -233,6 +246,18 @@ addInstInfo inst@(ctx :=> InCls name _ _) st = st { tcsIT = ext (tcsIT st) } whe
     ext = Map.insertWith (++) name [inst]
 
 -- addInstsFromClassInfo :: (Name, ClassInfo) -> TcState -> TcState
+
+addSpecialisation :: Name -> Type -> [Arg] -> Expr -> TCM ()
+addSpecialisation name typ args body = modify extSpec where
+    extSpec st = st { tcsSpec = addSpec (tcsSpec st)}
+    addSpec dict = Map.insertWith (++) name [(name, typ, args, body)] dict
+
+addResolution :: Name -> Type -> Expr -> TCM ()
+addResolution name typ expr = modify ext where
+    ext st = st { tcsREnv = Map.insert (name, typ) expr (tcsREnv st) }
+
+lookupResolution :: Name -> Type -> TCM(Maybe Expr)
+lookupResolution name typ = gets (Map.lookup (name,typ) . tcsREnv)
 
 runTcS t = runState t initState
 
