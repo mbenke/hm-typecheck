@@ -73,6 +73,10 @@ monotype t = Forall [] ([] :=> t)
 forAll :: String -> Type -> Scheme
 forAll s t = Forall (words s) ([] :=> t)
 
+argTypes :: Type -> [Type]
+argTypes (a :-> b) = a : argTypes b
+argTypes _ = []
+
 -- deriving instance Show Scheme
 
 instance Show Scheme where
