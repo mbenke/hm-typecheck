@@ -29,6 +29,8 @@ primVals =
   , ("Unit", monotype unit)
   , ("True", monotype bool)
   , ("False", monotype bool)
+  , ("Nil", forAll "a" $ list a)
+  , ("Cons", forAll "a" $ a :-> list a :-> list a)
   -- methods for class Ref
   , ("load", Forall ["a", "b"] $ [InCls "Ref" [b] a] :=> a :-> b)
   , ("store", Forall ["a", "b"] $ [InCls "Ref" [b] a] :=> a :-> b :-> unit)
