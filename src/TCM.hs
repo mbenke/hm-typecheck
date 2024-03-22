@@ -27,9 +27,11 @@ type ClassTable = Table ClassInfo
 type ClassInfo = (Arity, [Method]) -- number of weak parameters and method names
 type InstTable = Table [Inst]      -- instances list for a given class name
 type SpecTable = Table [Specialisation]
+type TLDict = Table TLDef
 type Arity = Int
 type Method = Name
-type Specialisation = (Type, [Arg], Expr)
+type TLDef = (Name, Scheme, [Arg], Expr)
+type Specialisation = (Name, Type, [Arg], Expr)
 
 data TcState = TcState {
  tcsLogEnabled :: Bool,
