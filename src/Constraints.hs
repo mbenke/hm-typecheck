@@ -137,7 +137,7 @@ solve [] subst = pure subst
 solve ((l,r):cs) s = do
   s' <- mgu (apply s l) (apply s r)
   s'' <- solve cs s'
-  pure (s'<>s'')
+  pure (s''<>s')
 
 
 {-
