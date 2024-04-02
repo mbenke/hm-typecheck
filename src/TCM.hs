@@ -32,7 +32,8 @@ type Arity = Int
 type Method = Name
 type TLDef = (Name, Scheme, [Arg], Expr)
 type Specialisation = (Name, Type, [Arg], Expr)
-type ResolutionEnv = Map.Map (Name, Type) Expr
+type ResolutionEnv = Map.Map Name [Resolution]
+type Resolution = (Type, Expr)
 
 data TcState = TcState {
  tcsLogEnabled :: Bool,
@@ -135,12 +136,12 @@ withCurrentSubst t = do
 logCurrentSubst :: TCM ()
 logCurrentSubst = do
   s <- getCurrentSubst
-  info["! subst = ", str s]
+  info ["! subst = ", str s]
 
 showEnv :: Bool -> Env -> String
-showEnv withPrims env = concat . map showEntry $ Map.toList env where
+showEnv withPrims env = concatMap showEntry $ Map.toList env where
     showEntry (n, s)
-        | not(nameIsPrimitive n) || withPrims = n ++ " : " ++ str (legibleScheme s) ++ "\n"
+        | not (nameIsPrimitive n) || withPrims = n ++ " : " ++ str (legibleScheme s) ++ "\n"
         | otherwise = ""
 
 showSpecTable :: SpecTable -> String
@@ -150,10 +151,17 @@ showSpecTable table = unlines . map showSpecs $ Map.toList table where
     showEntry :: Specialisation -> String
     showEntry (name, typ, args, body) = showDecl (ValBind name args body)
 
+showREnv :: ResolutionEnv -> String
+showREnv = unlines . map showRes . Map.toList where
+    showRes :: (Name, [Resolution]) -> String
+    showRes (n, res) = unlines (map showEntry res) where
+      showEntry :: Resolution -> String
+      showEntry (t, e) = n ++ " : " ++ str t ++ " = " ++ showExpr e
+
 nameIsPrimitive n = isJust (Map.lookup n primEnv)
 
 showSmallEnv :: [(Name,Scheme)] -> String
-showSmallEnv env = intercalate ", " [showEntry (n,s) | (n,s) <- env, not(nameIsPrimitive n)]
+showSmallEnv env = intercalate ", " [showEntry (n,s) | (n,s) <- env, not (nameIsPrimitive n)]
     where
     withPrims = False
     showEntry (n, s) = n ++ " : " ++ str (legibleScheme s)
@@ -250,14 +258,22 @@ addInstInfo inst@(ctx :=> InCls name _ _) st = st { tcsIT = ext (tcsIT st) } whe
 addSpecialisation :: Name -> Type -> [Arg] -> Expr -> TCM ()
 addSpecialisation name typ args body = modify extSpec where
     extSpec st = st { tcsSpec = addSpec (tcsSpec st)}
-    addSpec dict = Map.insertWith (++) name [(name, typ, args, body)] dict
+    addSpec = Map.insertWith (++) name [(name, typ, args, body)]
 
 addResolution :: Name -> Type -> Expr -> TCM ()
 addResolution name typ expr = modify ext where
-    ext st = st { tcsREnv = Map.insert (name, typ) expr (tcsREnv st) }
+    ext st = st { tcsREnv = Map.insertWith (++) name [(typ, expr)] (tcsREnv st) }
 
 lookupResolution :: Name -> Type -> TCM(Maybe Expr)
-lookupResolution name typ = gets (Map.lookup (name,typ) . tcsREnv)
+lookupResolution name typ = gets (Map.lookup name . tcsREnv) >>= findMatch typ where
+  findMatch :: Type -> Maybe [Resolution] -> TCM (Maybe Expr)
+  findMatch typ (Just res) = firstMatch typ res
+  findMatch _ Nothing = return Nothing
+  firstMatch :: Type -> [Resolution] -> TCM (Maybe Expr)
+  firstMatch typ [] = return Nothing
+  firstMatch typ ((t,e):res)
+    | Right subst <- match t typ = return (Just e)
+    | otherwise = firstMatch typ res
 
 runTcS t = runState t initState
 

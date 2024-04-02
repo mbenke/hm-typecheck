@@ -74,13 +74,15 @@ checkProg' verbose prog = do
   case res of
     Left err -> putStrLn "Error: " >> putStrLn err
     Right t -> do
-        putStrLn $ (printTree prog)
+        putStrLn(printTree prog)
         let env = tcsEnv state
         let withPrims = False
         writeln ""
         writeln (showEnv withPrims env)
         writeln "------------\nSpecialised:\n------------"
         writeln (showSpecTable(tcsSpec state))
+        writeln "------------\nResolutions:\n------------"
+        writeln (showREnv(tcsREnv state))
   when verbose $ do
              let history = reverse (tcsLog state)
              writeln "------------\nHistory:\n------------"

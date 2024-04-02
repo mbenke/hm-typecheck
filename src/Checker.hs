@@ -217,10 +217,11 @@ tiInstance :: Qual Pred -> [Decl] -> TCM ()
 tiInstance inst methods = do
   -- Type variables in an instance declaration are implicitly bound
   -- so they need to be renamed before the overlap check
-  inst'@(q :=> p@(InCls c as t)) <- renameFreeVars inst
+  inst'@(q :=> ihead@(InCls c as t)) <- renameFreeVars inst
+  warn ["+ tiInstance ", str inst']
   ois <- getInsts c
   checkOverlap t ois
-  -- FIXME: check methods
+  forM_ methods (checkMethod ihead)
   let anf = anfInstance inst
   modify (addInstInfo anf)
   where
@@ -231,7 +232,34 @@ tiInstance inst methods = do
                  (unwords ["instance",str inst,"overlaps", str oi])
       Left _ -> checkOverlap t is
     matchesType t (_ :=> InCls _ _ u) = match t u
+    formLambda [] body = body
+    formLambda as body = ELam as body
+    findPred :: Name -> [Pred] -> Maybe Pred
+    findPred cname (p:ps) | predName p == cname = Just p
+                          | otherwise = findPred cname ps
+    findPred cname [] = Nothing
+    checkMethod :: Pred -> Decl -> TCM ()
+    checkMethod ihead (ValBind name args body) = do
+      let InCls cname cargs mainType = ihead
+      Forall tvs (qs :=> genType)  <- askType name
+      p <- maybeToTCM ("Constraint for "++cname++ " not found in type of "++name)
+                      (findPred cname qs)
+      subst <- liftEither (matchPred p ihead)
+      -- warn["-- mgu=",str subst]
+      let expType = apply subst genType
+      let exp = formLambda (apply subst args) body
+      let iTypes = apply subst (map TVar tvs)
+      let name' = specName  name iTypes
+      warn ["- checkMethod ", str (ValBind name' [] exp), " : ", str expType]
+      (iq, it) <- tiExpr exp
+      warn ["< tiExpr ", str exp, " : ", str (iq:=>it)]
+      match it expType
+      addResolution name expType (EVar name')
+      addSpecialisation name' expType [] exp
+      return ()
 
+-- liftEither :: MonadError e m => Either e a -> m a
+-- liftEither m = catchError m throwError
 
 tiProg :: Prog -> TCM ()
 tiProg (Prog decls) = do
@@ -266,7 +294,7 @@ attachTypes = zipWith typedArg where
     typedArg (TArg name _) t = TArg name t
 
 lookupTLD :: Name -> TCM (Maybe TLDef)
-lookupTLD name = Map.lookup name <$> gets tcsTLD
+lookupTLD name = gets (Map.lookup name . tcsTLD)
 
 {-
 specialiseEntries :: [Decl] -> [Name] -> TCM ()
@@ -307,8 +335,13 @@ specialiseExp e@(EInt i) etyp = pure e
 specialiseExp e@(EVar n) etyp = do
   mres <- lookupResolution n etyp
   case mres of
-    Just exp -> return exp
-    Nothing -> specialiseFun n etyp
+    Just exp -> do
+              warn ["! specVar ", n, " resolution: ", str exp]
+              return exp
+    Nothing -> do
+              warn ["! specVar ", n, " to ", str etyp, "- NO resolution: "]
+              specialiseFun n etyp
+
 specialiseExp e@(ECon n) etyp = specialiseCon n etyp
 
 specialiseExp e@(EApp fun a) etyp = do
@@ -316,8 +349,8 @@ specialiseExp e@(EApp fun a) etyp = do
   (aps, atyp) <- tiExpr a
   warn ["! specApp ", str e,
         " fun = ", str fun," : ", str ftyp,
-        " arg = ", str a, " : ", str atyp,
-        " target: ", str etyp
+        "; arg = ", str a, " : ", str atyp,
+        "; target: ", str etyp
        ]
 
   warn ["> mgu: ",str ftyp ," ~ ", str (atyp :-> etyp)]
@@ -528,3 +561,11 @@ unifError (t1,t2) = throwError $ "Cannot unify "++show t1++" with "++show t2
 
 maybeFromRight :: Either a b -> Maybe b
 maybeFromRight = either (const Nothing) Just
+
+instance HasTypes Arg where
+    apply s (UArg n) = UArg n
+    apply s (TArg n t) = TArg n (apply s t)
+    ftv (UArg n) = []
+    ftv (TArg n t) = ftv t
+
+-- instance HasTypes Expr where
