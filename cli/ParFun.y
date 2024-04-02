@@ -154,7 +154,7 @@ Decl
   : 'type' CType TyDeRhs { AbsFun.TypeDecl $2 $3 }
   | LIdent ':' QType { AbsFun.ValDecl $1 $3 }
   | LIdent ListArg '=' Expr { AbsFun.ValBind $1 $2 $4 }
-  | 'instance' QPred { AbsFun.InstDecl $2 }
+  | 'instance' QPred Methods { AbsFun.InstDecl $2 $3 }
   | 'class' CPred Methods { AbsFun.ClsDecl $2 $3 }
   | 'pragma' LIdent { AbsFun.Pragma $2 }
 

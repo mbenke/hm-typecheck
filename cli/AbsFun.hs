@@ -41,7 +41,7 @@ data Decl
     = TypeDecl CType TyDeRhs
     | ValDecl LIdent QType
     | ValBind LIdent [Arg] Expr
-    | InstDecl QPred
+    | InstDecl QPred Methods
     | ClsDecl CPred Methods
     | Pragma LIdent
   deriving (C.Eq, C.Ord, C.Show, C.Read)

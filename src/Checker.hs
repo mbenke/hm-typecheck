@@ -175,7 +175,7 @@ tiDecl (TypeDecl typ@(TCon name args) alts) = do
       addCon (name, typ) = extEnv name typ
 
 -- check instance declaration such as `instance Int : Eq`
-tiDecl (InstDecl qp) = tiInstance qp
+tiDecl (InstDecl qp methods) = tiInstance qp methods
 
 -- check class declaration such ass `class a:Eq { eq : a -> a -> Bool }`
 tiDecl(ClsDecl pred methods) = do
@@ -213,13 +213,14 @@ tiConAlt result (ConAlt cname argumentTypes) = pure (cname, simpleGen constructo
   simpleGen :: Type -> Scheme
   simpleGen t = Forall (ftv t) ([] :=> t)
 
-tiInstance :: Qual Pred -> TCM ()
-tiInstance inst = do
+tiInstance :: Qual Pred -> [Decl] -> TCM ()
+tiInstance inst methods = do
   -- Type variables in an instance declaration are implicitly bound
   -- so they need to be renamed before the overlap check
   inst'@(q :=> p@(InCls c as t)) <- renameFreeVars inst
   ois <- getInsts c
   checkOverlap t ois
+  -- FIXME: check methods
   let anf = anfInstance inst
   modify (addInstInfo anf)
   where
