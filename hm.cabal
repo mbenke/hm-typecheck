@@ -22,7 +22,7 @@ maintainer:         marcin@benke.org
 extra-source-files: CHANGELOG.md
 
 library
-    default-extensions: LambdaCase, PatternSynonyms
+    default-extensions: LambdaCase, PatternSynonyms, BlockArguments
 
     -- Modules included in this executable, other than Main.
     exposed-modules:
@@ -30,11 +30,10 @@ library
       Debug
 
     -- LANGUAGE extensions used by modules in this package.
-    other-extensions: TemplateHaskell, QuasiQuotes, PatternSynonyms
+    -- other-extensions: 
     build-depends:    base ^>=4.16.4.0,
                       mtl >= 2.2,
                       containers >= 0.6,
-                      BNFC-meta >= 0.6
 
 
     hs-source-dirs:   src
@@ -43,7 +42,7 @@ library
 
 executable fun
     main-is:          CheckFile.hs
-    default-extensions: LambdaCase, PatternSynonyms
+    default-extensions: LambdaCase, PatternSynonyms, BlockArguments
 
     -- Modules included in this executable, other than Main.
     other-modules:
@@ -51,7 +50,7 @@ executable fun
       Desugar
 
     -- LANGUAGE extensions used by modules in this package.
-    other-extensions: TemplateHaskell, QuasiQuotes, PatternSynonyms
+    other-extensions: TemplateHaskell, QuasiQuotes
     build-depends:    base ^>=4.16.4.0,
                       mtl >= 2.2,
                       containers >= 0.6,

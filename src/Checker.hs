@@ -144,7 +144,7 @@ isFreeInEnv tv = do
 
 schemeOf :: Expr -> TCM Scheme
 schemeOf exp = wrapError ty exp where
-  ty = (tiExpr exp) >>= generalize
+  ty = tiExpr exp >>= generalize
 
 wrapError :: ToStr ctxt => TCM a -> ctxt -> TCM a
 wrapError m ctxt = catchError m handler where
@@ -160,8 +160,11 @@ tiDecl (ValDecl n qt) = do
 
 tiDecl (ValBind n as e) = do
   info ["\nChecking ", n]
-  s <- tiBind n as e `wrapError` n
+  s@(Forall tvs (qs :=> typ))  <- tiBind n as e `wrapError` n
   extEnv n s
+  let exp = formLambda as typ e
+  addResolution n typ exp
+
 
 -- check type declaration,such as `Option a = None |  Some a`
 tiDecl (TypeDecl typ@(TCon name args) alts) = do
@@ -231,9 +234,8 @@ tiInstance inst methods = do
       Right s -> throwError
                  (unwords ["instance",str inst,"overlaps", str oi])
       Left _ -> checkOverlap t is
-    matchesType t (_ :=> InCls _ _ u) = match t u
-    formLambda [] body = body
-    formLambda as body = ELam as body
+    -- matchesType t (_ :=> InCls _ _ u) = match t u
+
     findPred :: Name -> [Pred] -> Maybe Pred
     findPred cname (p:ps) | predName p == cname = Just p
                           | otherwise = findPred cname ps
@@ -244,19 +246,26 @@ tiInstance inst methods = do
       Forall tvs (qs :=> genType)  <- askType name
       p <- maybeToTCM ("Constraint for "++cname++ " not found in type of "++name)
                       (findPred cname qs)
-      subst <- liftEither (matchPred p ihead)
+      subst <- liftEither (matchPred p ihead) `wrapError` ihead
       -- warn["-- mgu=",str subst]
       let expType = apply subst genType
-      let exp = formLambda (apply subst args) body
+      let args' = apply subst args
+      let exp = formLambda args' expType body
       let iTypes = apply subst (map TVar tvs)
       let name' = specName  name iTypes
       warn ["- checkMethod ", str (ValBind name' [] exp), " : ", str expType]
       (iq, it) <- tiExpr exp
       warn ["< tiExpr ", str exp, " : ", str (iq:=>it)]
-      match it expType
-      addResolution name expType (EVar name')
-      addSpecialisation name' expType [] exp
+      match it expType `wrapError` exp
+      addResolution name expType exp -- (EVar name')
+      -- addSpecialisation name' expType [] exp
       return ()
+
+formLambda :: [Arg] -> Type -> Expr -> Expr
+formLambda [] typ body = body
+formLambda as typ body = ELam as body where
+  addTypes [] t = []
+  addTypes (a:as) (t :-> u)  = TArg (argName a) t : addTypes as u
 
 -- liftEither :: MonadError e m => Either e a -> m a
 -- liftEither m = catchError m throwError
@@ -330,25 +339,40 @@ resultType t [] = t
 resultType (ta :-> tr) (a:as) = resultType tr as
 resultType typ args = error (
   "resultType: wrong number of arguments; typ="++str typ++"++args="++str args)
+
 specialiseExp :: Expr -> Type -> TCM Expr
 specialiseExp e@(EInt i) etyp = pure e
 specialiseExp e@(EVar n) etyp = do
   mres <- lookupResolution n etyp
   case mres of
-    Just exp -> do
-              warn ["! specVar ", n, " resolution: ", str exp]
-              return exp
+    Just (exp, subst) -> do
+
+              fscheme <- askType n
+              let (Forall tvs (ps :=> typ)) = fscheme
+              warn ["! specVar ", n, ":", str fscheme," @ ", str etyp,  " resolution: ", str (exp, subst)]
+              let ps' = apply subst ps
+              let tvs' = apply subst (map TVar tvs)
+              warn ["- specVar: tvs=", str tvs, " tvs'=", str tvs']
+              let name' = specName n tvs'
+              body' <- specialiseExp exp etyp
+              warn ["< specExp ", str exp, " : ", str etyp, " ~>", str body']
+              let args' = [] -- FIXME
+              -- for noninlining version, add specialsation and return its name
+              -- addSpecialisation name' etyp args' body'
+              -- for inlining version, just return the specialised body
+              return body'
     Nothing -> do
-              warn ["! specVar ", n, " to ", str etyp, "- NO resolution: "]
-              specialiseFun n etyp
+              warn ["! specVar ", n, " to ", str etyp, " - NO resolution"]
+              -- specialiseFun n etyp
+              return e
 
 specialiseExp e@(ECon n) etyp = specialiseCon n etyp
 
 specialiseExp e@(EApp fun a) etyp = do
   (fps, ftyp) <- tiExpr fun
   (aps, atyp) <- tiExpr a
-  warn ["! specApp ", str e,
-        " fun = ", str fun," : ", str ftyp,
+  warn ["> specApp (", str e,
+        ") fun = ", str fun," : ", str ftyp,
         "; arg = ", str a, " : ", str atyp,
         "; target: ", str etyp
        ]
@@ -359,10 +383,21 @@ specialiseExp e@(EApp fun a) etyp = do
   unify ftyp (atyp :-> etyp)
   atyp' <- withCurrentSubst atyp
   ftyp' <- withCurrentSubst ftyp
-  warn ["! specApp - fun: ",str ftyp'," arg: ", str atyp']
   a' <- specialiseExp a atyp'
   f' <- specialiseExp fun ftyp'
+  warn ["< specApp - fun = ",str (ETyped f' ftyp')," arg: ", str (ETyped a' atyp')]
   return (EApp f' a')
+
+specialiseExp e@(ELam args body) etyp = withLocalEnv do
+  let args' = attachTypes args (argTypes etyp)
+  addArgs args'
+  body' <- specialiseExp body (resultType etyp args)
+  warn ["< specLam ", str e, " : ", str etyp, " ~>", str (ELam args' body')]
+  return (ELam args' body')
+
+specialiseExp e@(ETyped e' t) etyp = do -- TESTME
+  e'' <- specialiseExp e' etyp
+  return (ETyped e'' etyp)
 
 specialiseExp e etyp = do
   warn ["FAILED to specialise ", str e]
@@ -379,7 +414,7 @@ specialiseFun f etyp = do
       let tvs' = apply phi (map TVar tvs)
       let f' = specName f tvs'
       warn ["! specFun ",f," : ", str fscheme, " to ", f', " : ", str etyp]
-      addResolution f etyp (EVar f')
+      -- addResolution f etyp (EVar f')
       def'@(name', typ', args', body') <- specialiseDef  f' def etyp
       let newDef = ValBind name' args' body'
       warn ["! specFun new def: ", show newDef]
@@ -568,4 +603,26 @@ instance HasTypes Arg where
     ftv (UArg n) = []
     ftv (TArg n t) = ftv t
 
--- instance HasTypes Expr where
+instance HasTypes Expr where
+    apply s (EInt i) = EInt i
+    apply s (EVar n) = EVar n
+    apply s (ECon n) = ECon n
+    apply s (EApp e1 e2) = EApp (apply s e1) (apply s e2)
+    apply s (ELam args e) = ELam (apply s args) (apply s e)
+    apply s (ELet n e1 e2) = ELet n (apply s e1) (apply s e2)
+    apply s (ETyped e t) = ETyped (apply s e) (apply s t)
+    apply s (EBlock stmts) = EBlock (apply s stmts)
+    ftv (EInt _) = []
+    ftv (EVar n) = []
+    ftv (ECon n) = []
+    ftv (EApp e1 e2) = ftv e1 ++ ftv e2
+    ftv (ELam args e) = ftv args ++ ftv e
+    ftv (ELet n e1 e2) = ftv e1 ++ ftv e2
+    ftv (ETyped e t) = ftv e ++ ftv t
+    ftv (EBlock stmts) = ftv stmts
+
+instance HasTypes (Stmt ann) where
+    apply s (SExpr ann e) = SExpr ann (apply s e)
+    apply s (SAlloc ann n t) = SAlloc ann n (apply s t)
+    ftv (SExpr _ e) = ftv e
+    ftv (SAlloc _ n t) = ftv t

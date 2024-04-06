@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
 module Constraints where
 import Control.Monad.Error.Class
 import Data.List(union, intersect, nub, (\\), deleteBy, nubBy, intercalate)
@@ -105,7 +104,7 @@ match (TCon tc1 as1) (TCon tc2 as2)
       sr <- matcha as bs
       merge sl sr
 match (TVar u) t = pure (u +-> t)
-match _ _ = throwError "types do not match"
+match t u = throwError(unwords["types do not match:", show t, show u])
 
 matchTypes :: MonadError String m => [Type] -> [Type] -> m Subst
 matchTypes []  [] = pure mempty

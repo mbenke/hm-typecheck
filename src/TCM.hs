@@ -118,9 +118,11 @@ extEnv n s = do
   putEnv (Map.insert n s env)
 
 withExtEnv :: Name -> Scheme -> TCM a -> TCM a
-withExtEnv n s ta = do
+withExtEnv n s ta = withLocalEnv (extEnv n s >> ta)
+
+withLocalEnv :: TCM a -> TCM a
+withLocalEnv ta = do
   env <- gets tcsEnv
-  putEnv (Map.insert n s env)
   a <- ta
   putEnv env
   pure a
@@ -154,7 +156,7 @@ showSpecTable table = unlines . map showSpecs $ Map.toList table where
 showREnv :: ResolutionEnv -> String
 showREnv = unlines . map showRes . Map.toList where
     showRes :: (Name, [Resolution]) -> String
-    showRes (n, res) = unlines (map showEntry res) where
+    showRes (n, res) = intercalate "\n"  (map showEntry res) where
       showEntry :: Resolution -> String
       showEntry (t, e) = n ++ " : " ++ str t ++ " = " ++ showExpr e
 
@@ -264,15 +266,22 @@ addResolution :: Name -> Type -> Expr -> TCM ()
 addResolution name typ expr = modify ext where
     ext st = st { tcsREnv = Map.insertWith (++) name [(typ, expr)] (tcsREnv st) }
 
-lookupResolution :: Name -> Type -> TCM(Maybe Expr)
+{- | lookupResolution name typ
+   looks up the resolutions for name in the resolution environment
+   and returns the first resolution that matches the type along with the substitution;
+   since overlapping instances are forbidden, there can be at most one matching resolution 
+-}
+lookupResolution :: Name -> Type -> TCM(Maybe (Expr, Subst))
 lookupResolution name typ = gets (Map.lookup name . tcsREnv) >>= findMatch typ where
-  findMatch :: Type -> Maybe [Resolution] -> TCM (Maybe Expr)
+  findMatch :: Type -> Maybe [Resolution] -> TCM (Maybe (Expr, Subst))
   findMatch typ (Just res) = firstMatch typ res
   findMatch _ Nothing = return Nothing
-  firstMatch :: Type -> [Resolution] -> TCM (Maybe Expr)
+  firstMatch :: Type -> [Resolution] -> TCM (Maybe (Expr, Subst))
   firstMatch typ [] = return Nothing
   firstMatch typ ((t,e):res)
-    | Right subst <- match t typ = return (Just e)
+    | Right subst <- mgu t typ = do  -- TESTME: match is to weak for MPTC, but isn't mgu too strong?
+        warn ["! lookupRes: match found: ", str t, " ~ ", str typ, " => ", str subst]
+        return (Just (e, subst))
     | otherwise = firstMatch typ res
 
 runTcS t = runState t initState

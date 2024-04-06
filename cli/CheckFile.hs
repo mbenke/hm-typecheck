@@ -79,10 +79,10 @@ checkProg' verbose prog = do
         let withPrims = False
         writeln ""
         writeln (showEnv withPrims env)
-        writeln "------------\nSpecialised:\n------------"
-        writeln (showSpecTable(tcsSpec state))
         writeln "------------\nResolutions:\n------------"
         writeln (showREnv(tcsREnv state))
+        writeln "------------\nSpecialised:\n------------"
+        writeln (showSpecTable(tcsSpec state))
   when verbose $ do
              let history = reverse (tcsLog state)
              writeln "------------\nHistory:\n------------"
