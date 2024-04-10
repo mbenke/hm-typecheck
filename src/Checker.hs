@@ -252,8 +252,8 @@ tiInstance inst methods = do
       let args' = apply subst args
       let exp = formLambda args' expType body
       let iTypes = apply subst (map TVar tvs)
-      let name' = specName  name iTypes
-      warn ["- checkMethod ", str (ValBind name' [] exp), " : ", str expType]
+      -- let name' = specName  name iTypes
+      -- warn ["- checkMethod ", str (ValBind name' [] exp), " : ", str expType]
       (iq, it) <- tiExpr exp
       warn ["< tiExpr ", str exp, " : ", str (iq:=>it)]
       match it expType `wrapError` exp
@@ -346,21 +346,25 @@ specialiseExp e@(EVar n) etyp = do
   mres <- lookupResolution n etyp
   case mres of
     Just (exp, subst) -> do
-
               fscheme <- askType n
-              let (Forall tvs (ps :=> typ)) = fscheme
+              let (Forall _tvs (ps :=> typ)) = fscheme
+              let tvs = ftv typ
               warn ["! specVar ", n, ":", str fscheme," @ ", str etyp,  " resolution: ", str (exp, subst)]
-              let ps' = apply subst ps
-              let tvs' = apply subst (map TVar tvs)
+              phi <- mgu typ etyp
+              let subst' = subst <> phi
+              warn ["!! phi <> subst=", str subst']
+              -- let ps' = apply subst ps
+              let tvs' = apply subst' (map TVar tvs)
               warn ["- specVar: tvs=", str tvs, " tvs'=", str tvs']
               let name' = specName n tvs'
               body' <- specialiseExp exp etyp
               warn ["< specExp ", str exp, " : ", str etyp, " ~>", str body']
               let args' = [] -- FIXME
-              -- for noninlining version, add specialsation and return its name
+              -- for noninlining version, add specialisation and return its name
               -- addSpecialisation name' etyp args' body'
               -- for inlining version, just return the specialised body
-              return body'
+              addSpecialisation name' etyp args' body'
+              return (EVar name')
     Nothing -> do
               warn ["! specVar ", n, " to ", str etyp, " - NO resolution"]
               -- specialiseFun n etyp
