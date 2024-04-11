@@ -45,7 +45,7 @@ specialiseExp e@(EVar n) etyp = do
               let (Forall _ (ps :=> typ)) = fscheme
               let tvs = ftv typ
               warn ["! specVar ", n, ":", str fscheme," @ ", str etyp,  " resolution: ", str (exp, subst)]
-              phi <- mgu typ etyp
+              phi <- mgu typ etyp `wrapError` ("specialise "++n, typ, etyp)
               let subst' = subst <> phi
               let tvs' = apply subst' (map TVar tvs)
               warn ["- specVar: tvs=", str tvs, " tvs'=", str tvs']
@@ -63,22 +63,19 @@ specialiseExp e@(EVar n) etyp = do
 specialiseExp e@(ECon n) etyp = specialiseCon n etyp
 
 specialiseExp e@(EApp fun a) etyp = do
-  (fps, ftyp) <- tiExpr fun
-  (aps, atyp) <- tiExpr a
+  (aps, atyp) <- tiExpr a `wrapError` a `wrapError` e
+  (fps, ftyp) <- tiExpr fun `wrapError` fun `wrapError` e
   warn ["> specApp (", str e,
         ") fun = ", str fun," : ", str ftyp,
         "; arg = ", str a, " : ", str atyp,
         "; target: ", str etyp
        ]
-
-  warn ["> mgu: ",str ftyp ," ~ ", str (atyp :-> etyp)]
-  phi <- mgu ftyp (atyp :-> etyp)
-  warn ["< mgu: phi=", str phi]
-  unify ftyp (atyp :-> etyp)
-  atyp' <- withCurrentSubst atyp
-  ftyp' <- withCurrentSubst ftyp
-  a' <- specialiseExp a atyp'
-  f' <- specialiseExp fun ftyp'
+  phi <- mgu ftyp (atyp :-> etyp) `wrapError` ("specialise", e)
+  warn ["< mgu", str(ftyp, atyp :-> etyp), " = " , str phi]
+  let atyp' = apply phi atyp
+  let ftyp' = apply phi ftyp
+  a' <- specialiseExp (apply phi a) atyp'
+  f' <- specialiseExp (apply phi fun) ftyp'
   warn ["< specApp - fun = ",str (ETyped f' ftyp')," arg: ", str (ETyped a' atyp')]
   return (EApp f' a')
 
@@ -89,7 +86,7 @@ specialiseExp e@(ELam args body) etyp = withLocalEnv do
   warn ["< specLam ", str e, " : ", str etyp, " ~>", str (ELam args' body')]
   return (ELam args' body')
 
-specialiseExp e@(ETyped e' t) etyp = do -- TESTME
+specialiseExp e@(ETyped e' t) etyp = do
   e'' <- specialiseExp e' etyp
   return (ETyped e'' etyp)
 
