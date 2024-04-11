@@ -63,12 +63,18 @@ specialiseExp e@(EVar n) etyp = do
 specialiseExp e@(ECon n) etyp = specialiseCon n etyp
 
 specialiseExp e@(EApp fun a) etyp = do
-  (aps, atyp) <- tiExpr a `wrapError` a `wrapError` e
-  (fps, ftyp) <- tiExpr fun `wrapError` fun `wrapError` e
-  warn ["> specApp (", str e,
-        ") fun = ", str fun," : ", str ftyp,
-        "; arg = ", str a, " : ", str atyp,
-        "; target: ", str etyp
+  (aps, atyp0) <- tiExpr a `wrapError` a `wrapError` e
+  (fps, ftyp0) <- tiExpr fun `wrapError` fun `wrapError` e
+  reduceContext aps
+  reduceContext fps
+  atyp <- withCurrentSubst atyp0
+  ftyp <- withCurrentSubst ftyp0
+  subst <- getCurrentSubst
+  warn [ "> specApp (", str e
+       , ") fun = ", str fun," : ", str ftyp
+       , "; arg = ", str a, " : ", str (aps :=> atyp)
+       , "; target: ", str etyp
+       -- , "subst: ", str subst
        ]
   phi <- mgu ftyp (atyp :-> etyp) `wrapError` ("specialise", e)
   warn ["< mgu", str(ftyp, atyp :-> etyp), " = " , str phi]
@@ -89,6 +95,10 @@ specialiseExp e@(ELam args body) etyp = withLocalEnv do
 specialiseExp e@(ETyped e' t) etyp = do
   e'' <- specialiseExp e' etyp
   return (ETyped e'' etyp)
+
+specialiseExp (EBlock stmts) etyp = withLocalEnv do
+  stmts' <- mapM (`specialiseStmt` etyp) stmts
+  return (EBlock stmts')
 
 -- this should never happen, but just in case:
 specialiseExp e etyp = throwError("FAILED to specialise "++str e)
@@ -112,3 +122,11 @@ specName n ts = n ++ "<" ++ intercalate "," (map str ts) ++ ">"
 -- or mangle, e.g. using $ and underscore:
 -- specName n ts = n ++ "$" ++ intercalate "_" (map str ts) ++ "$"
 
+specialiseStmt :: Stmt a -> Type -> TCM (Stmt a)
+specialiseStmt (SExpr a e) _ = do
+  (ps, t) <- tiExpr e `wrapError` e
+  e' <- specialiseExp e t
+  return (SExpr a e')
+specialiseStmt (SAlloc a x t) _ = do
+    extEnv x (monotype $ stackT t)
+    return (SAlloc a x t)

@@ -361,31 +361,31 @@ toHnf (t :~: u) = do
 toHnf pred
   | inHnf pred = return [pred]
   | otherwise = do
-      info ["> toHnf ", str pred]
+      -- info ["> toHnf ", str pred]
       ce <- gets tcsIT
       case byInstM ce pred of
         Nothing -> throwError ("no instance of " ++ str pred)
         Just (preds, subst') -> do
-            info ["! toHnf <  byInstM ", str preds, " subst'=", str subst']
+            -- info ["! toHnf <  byInstM ", str preds, " subst'=", str subst']
             extSubst subst'
             toHnfs preds
 
 toHnfs :: [Pred] -> TCM [Pred]
 toHnfs ps = do
   subst <- getCurrentSubst
-  info ["> toHnfs ", str ps, " subst=",str subst]
+  -- info ["> toHnfs ", str ps, " subst=",str subst]
   ps2 <- simplifyEqualities ps >>= withCurrentSubst
-  info ["< simpEqs ", str ps2]
-  info  ["! toHnfs > toHnfs' ", str ps2]
+  -- info ["< simpEqs ", str ps2]
+  -- info  ["! toHnfs > toHnfs' ", str ps2]
   toHnfs' ps2
 
 toHnfs' [] = return []
 toHnfs' preds@(p:ps) = do
-  info ["> toHnfs' ", str preds]
+  -- info ["> toHnfs' ", str preds]
   rs1 <- toHnf p
   ps' <- withCurrentSubst ps           -- important
   rs2 <- toHnfs' ps'
-  info ["< toHnfs' ", str (rs1++rs2)]
+  -- info ["< toHnfs' ", str (rs1++rs2)]
   return (rs1 ++ rs2)
 
 
@@ -398,9 +398,9 @@ inHnf (_ :~: _) = False
 
 reduceContext :: [Pred] -> TCM [Pred]
 reduceContext preds = do
-  info ["> reduceContext ", str preds]
+  when (not(null preds)) $ info ["> reduceContext ", str preds]
   ps2 <- (toHnfs preds >>= withCurrentSubst)
-  info ["< toHnfs ", str ps2]
+  when (not(null preds)) $ info ["< reduceContext ", str ps2]
   return (nub ps2)
 
 

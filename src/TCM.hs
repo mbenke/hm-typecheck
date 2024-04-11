@@ -260,10 +260,25 @@ addInstInfo inst@(ctx :=> InCls name _ _) st = st { tcsIT = ext (tcsIT st) } whe
 lookupTLD :: Name -> TCM (Maybe TLDef)
 lookupTLD name = gets (Map.lookup name . tcsTLD)
 
+lookupSpec :: Name -> Type ->  TCM (Maybe Specialisation)
+lookupSpec name typ = do
+  res <- gets (Map.lookup name . tcsSpec)
+  return (res >>= find typ)
+  where
+    find typ [] = Nothing
+    find typ ((n, t, args, body):specs)
+      | typ == t = Just (n, t, args, body)
+      | otherwise = find typ specs
+
+
 addSpecialisation :: Name -> Type -> [Arg] -> Expr -> TCM ()
-addSpecialisation name typ args body = modify extSpec where
-    extSpec st = st { tcsSpec = addSpec (tcsSpec st)}
-    addSpec = Map.insertWith (++) name [(name, typ, args, body)]
+addSpecialisation name typ args body = do
+  mspec <- lookupSpec name typ
+  case mspec of
+    Just _ -> return ()
+    Nothing -> modify extSpec where
+      extSpec st = st { tcsSpec = addSpec (tcsSpec st)}
+      addSpec = Map.insertWith (++) name [(name, typ, args, body)]
 
 addResolution :: Name -> Type -> Expr -> TCM ()
 addResolution name typ expr = modify ext where
@@ -272,7 +287,7 @@ addResolution name typ expr = modify ext where
 {- | lookupResolution name typ
    looks up the resolutions for name in the resolution environment
    and returns the first resolution that matches the type along with the substitution;
-   since overlapping instances are forbidden, there can be at most one matching resolution 
+   since overlapping instances are forbidden, there can be at most one matching resolution
 -}
 lookupResolution :: Name -> Type -> TCM(Maybe (Expr, Subst))
 lookupResolution name typ = gets (Map.lookup name . tcsREnv) >>= findMatch typ where

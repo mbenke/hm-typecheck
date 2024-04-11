@@ -60,9 +60,9 @@ instance Show Expr where
              showsPrec let_prec e2
          where let_prec = 2
 
-  showsPrec d (EBlock stmts) = showString "{ " .
-                               showString ( intercalate "; " (map show stmts)) .
-                               showString "}"
+  showsPrec d (EBlock stmts) = showString "{\n  " .
+                               showString ( intercalate ";\n  " (map show stmts)) .
+                               showString "\n}"
   showsPrec d (ETyped e t) = showParen (d > typ_prec) $
              showsPrec 0 e .
              showString " : " . showsPrec 10 t
@@ -90,6 +90,7 @@ showArg (UArg s) = s
 showArg (TArg s t) = concat["(",s,":",show t,")"]
 
 showDecl (ValDecl n qt) = unwords [n, ":", show qt]
+showDecl (ValBind n [] e) = unwords [n, "=", show e]
 showDecl (ValBind n as e) = unwords [n, sas, "=", show e] where
     sas = unwords (map showArg as)
 showDecl (ClsDecl pred mdecls) = unwords ["class", show pred, "{",  showDecls mdecls, "}"] where
