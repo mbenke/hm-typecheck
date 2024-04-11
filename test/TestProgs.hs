@@ -3,7 +3,7 @@ import Syntax
 import qualified ISyntax as I
 import Types
 import Desugar
-import Checker(typeCheck, verboseCheck, tiDecl, tiProg)
+import Checker( tiDecl, tiProg, schemeOf)
 import TCM
 import Control.Exception
 import Control.Monad
@@ -146,6 +146,10 @@ prog4 = [prog|
     x44 = store (indexAccess array 1) 42;
     |]
 
+typeCheck :: I.Expr -> IO ()
+typeCheck exp = case evalTCM (schemeOf exp) of
+                  Left e -> putStrLn "Error: " >> putStrLn e >> putStrLn ""
+                  Right t -> putStrLn $ (I.showExpr exp) ++ " :: " ++ show t
 
 report :: ErrorCall -> IO ()
 report (ErrorCall s) = putStrLn ("ERR: " ++ s)
@@ -175,7 +179,7 @@ checkProg' verbose prog = do
       showLog state
       exitFailure
     Right t -> do
-        putStrLn $ (printTree prog)
+        putStrLn (printTree prog)
         let env = tcsEnv state
         let withPrims = False
         writeln "\nTYPES:\n======"

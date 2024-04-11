@@ -403,50 +403,6 @@ reduceContext preds = do
   info ["< toHnfs ", str ps2]
   return (nub ps2)
 
--- typeOf :: Expr -> Either String Scheme
-typeOf exp = do
-  let (t,state) = runTCM (schemeOf exp)
-  let subst = tcsSubst state
-  apply subst <$> t
-
-typeCheck :: Expr -> IO ()
-typeCheck exp = case evalTCM (schemeOf exp) of
-                  Left e -> putStrLn "Error: " >> putStrLn e >> putStrLn ""
-                  Right t -> putStrLn $ (showExpr exp) ++ " :: " ++ show t
-
-verboseCheck :: Expr -> IO ()
-verboseCheck exp = do
-  let expS = showExpr exp
-  putStrLn $ "Check: " ++ expS
-  let (result,state) = runTCM (setLogging True >> schemeOf exp)
-  let  subst = tcsSubst state
-  let history = reverse (tcsLog state)
-  putStrLn "History:"
-  mapM_ putStrLn history
-  putStrLn "------------------------------------------------------------------------"
-  case result of
-                  Left e -> do
-                    putStrLn "Error: "
-                    putStrLn e
-                  Right t -> do
-                    putStrLn expS
-                    let typ = apply subst t
-                    putStr ":: "
-                    print typ
-
-{-
-solve :: Constraints -> Subst -> TCM Subst
-solve [] subst = return subst
-solve ((l,r):cs) s = do
-  s' <- mgu l r
-  solve cs s'
--}
-
-unifError :: Constraint -> TCM a
-unifError (t1,t2) = throwError $ "Cannot unify "++show t1++" with "++show t2
-
-maybeFromRight :: Either a b -> Maybe b
-maybeFromRight = either (const Nothing) Just
 
 instance HasTypes Arg where
     apply s (UArg n) = UArg n

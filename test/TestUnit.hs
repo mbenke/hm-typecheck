@@ -3,7 +3,7 @@ import Syntax
 import qualified ISyntax as I
 import Types
 import Desugar
-import Checker(typeCheck, verboseCheck, tiDecl, tiProg, tiExpr, generalize)
+import Checker(tiDecl, tiProg, tiExpr, generalize)
 import TCM
 import Control.Exception
 import Control.Monad
