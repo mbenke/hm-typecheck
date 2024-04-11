@@ -2,6 +2,7 @@ module Main where
 import System.Environment ( getArgs )
 import System.Exit        ( exitFailure, exitSuccess )
 import Control.Monad      ( when, forM_ )
+import qualified Data.Map as Map
 
 -- import AbsFun   ()
 import qualified AbsFun as C
@@ -12,6 +13,7 @@ import Desugar
 import ISyntax
 import TCM
 import Checker
+import Specialise
 
 type Err        = Either String
 type ParseFun a = [Token] -> Err a
@@ -66,11 +68,21 @@ main = do
     fs         -> mapM_ (runFile 0) fs
 
 checkProg = checkProg' False
+vcheckProg :: C.Prog -> IO ()
 vcheckProg = checkProg' True
+
+processProg prog@(Prog decls) = do
+  tiProg prog
+  tld <- buildTLD decls
+  case Map.lookup entrypoint tld of
+    Nothing -> return ()
+    Just def -> withLogging $ specialiseEntry entrypoint
+  where
+    entrypoint = "main"
 
 checkProg' :: Bool -> C.Prog -> IO ()
 checkProg' verbose prog = do
-  let (res, state) = runTCM (tiProg (desugar prog))
+  let (res, state) = runTCM (processProg (desugar prog))
   case res of
     Left err -> putStrLn "Error: " >> putStrLn err
     Right t -> do

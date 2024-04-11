@@ -257,6 +257,9 @@ addInstInfo inst@(ctx :=> InCls name _ _) st = st { tcsIT = ext (tcsIT st) } whe
 
 -- addInstsFromClassInfo :: (Name, ClassInfo) -> TcState -> TcState
 
+lookupTLD :: Name -> TCM (Maybe TLDef)
+lookupTLD name = gets (Map.lookup name . tcsTLD)
+
 addSpecialisation :: Name -> Type -> [Arg] -> Expr -> TCM ()
 addSpecialisation name typ args body = modify extSpec where
     extSpec st = st { tcsSpec = addSpec (tcsSpec st)}
