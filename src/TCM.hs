@@ -1,4 +1,3 @@
-{-# LANGUAGE UndecidableInstances #-}  -- for a general ToStr instance
 module TCM where
 import Control.Monad.Except
 import Control.Monad.State
@@ -18,7 +17,6 @@ import Types
 
 type Table a = Map.Map Name a
 type Env = Table Scheme            -- Environment maps names to type schemes
-
 
 type TypeTable = Table TypeInfo    -- TypeTable maps type constructor names to
 type TypeInfo = (Arity, [Name])    -- arity and constructor names
@@ -69,19 +67,18 @@ initState = init TcState
     init :: TcState -> TcState
     init = addPrimClasses
 
-class ToStr a where
-  str :: a -> String
-
-instance {-# OVERLAPPABLE  #-} Show a => ToStr a where str = show
-instance {-# OVERLAPPING   #-} ToStr String where str = id
-instance {-# OVERLAPPING   #-} ToStr Expr where str = showExpr
-instance {-# OVERLAPPING   #-} ToStr Decl where str = showDecl
-instance {-# OVERLAPPING   #-} ToStr InstTable where str = unlines . map show . Map.toList
-instance MonadFail Identity where
-  fail = error
-
 type TCM a = ExceptT String (State TcState) a
 type T a = TCM a
+
+maybeToTCM :: String -> Maybe a -> TCM a
+maybeToTCM msg Nothing = throwError msg
+maybeToTCM _ (Just a) = pure a
+
+wrapError :: ToStr ctxt => TCM a -> ctxt -> TCM a
+wrapError m ctxt = catchError m handler where
+    handler msg =
+        throwError (decorate msg)
+    decorate msg = msg ++ "\n  - in " ++ str ctxt
 
 getEnv :: T Env
 getEnv = gets tcsEnv
@@ -92,9 +89,7 @@ putEnv env = modify (\r -> r { tcsEnv = env })
 setLogging :: Bool -> T Bool
 setLogging switch = do
   wasLogging <- gets tcsLogEnabled
-  -- warn ["!! setLogging from:", str wasLogging]
   modify (\r -> r { tcsLogEnabled = switch })
-  -- warn ["!! setLogging to: ", str switch]
   return wasLogging
 
 withLogging :: T a -> T a
@@ -179,8 +174,8 @@ askType n = do
 askTypes :: [Name] -> TCM [(Name, Scheme)]
 askTypes  = mapM ask where ask n = do { t <- askType n; return (n,t) }
 
-getFreeVars :: TCM [Tyvar]
-getFreeVars = gets (concatMap (ftv.snd) . Map.toList . tcsEnv)
+getFreeEnvVars :: TCM [Tyvar]
+getFreeEnvVars = gets (concatMap (ftv.snd) . Map.toList . tcsEnv)
 
 tcsDeplete :: TcState -> (String,TcState)
 tcsDeplete s = (name, s { tcsNS = ns' }) where
@@ -317,7 +312,7 @@ addPrimClasses st = foldr addC st primClasses where
     addC :: (Name, ClassInfo) -> TcState -> TcState
     addC  = uncurry addClassInfo
 
--- runTCM :: TCM a -> (Either String a, TcState)
+runTCM :: TCM a -> (Either String a, TcState)
 runTCM = runTcS . runExceptT
 
 evalTCM :: TCM a -> Either String a

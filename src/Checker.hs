@@ -40,35 +40,26 @@ tiExpr (ECon v) = do
 -- check an application (function call)
 tiExpr e@(EApp fun arg) = do
   (ps, t1) <- tiExpr fun
-  -- info ["! EApp fun: ", str(ps :=> t1)]
   (qs, t2) <- tiExpr arg
-  -- info ["! EApp arg: ", str(qs :=> t2)]
   freshname <- tcmDeplete
   let tr = TVar freshname
   unify t1 (t2 :-> tr) `wrapError` e
   s <- getSubst
   let tr' = apply s tr
   let preds = apply s (ps ++ qs)
-  -- info ["! EApp res:  ", str e, " :: ", str (preds :=> tr') ]
-  pure (preds, tr')
+  return (preds, tr')
 
 tiExpr exp@(ELet x e1 e2) = do
   s <- tiBind x [] e1
-  -- info ["tiExpr let ", x, " :: ", str s ]
   (qs, t) <- withExtEnv x s (tiExpr e2)
-  pure (qs, t)
+  return (qs, t)
 
 tiExpr (ETyped e t) = do
   (ps, t1) <- tiExpr e
   unify t t1
   return (ps, t1)
 
-tiExpr (EBlock stmts) = do
-    env <- getEnv
-    result <- go stmts
-    putEnv env
-    return result
-  where
+tiExpr (EBlock stmts) = withLocalEnv (go stmts) where
     unit = ([], unitT)
     go [] = return unit
     go [stmt] = tiStmt stmt
@@ -80,14 +71,14 @@ tiExpr (EBlock stmts) = do
       localEnv <- askTypes (freeVars e)
       warn [str ann, " ~> ", str e]
       (ps, t) <- tiExpr e `wrapError` e
-      Forall as (ps1 :=> t1) <- (generalize (ps, t) `wrapError` e)
+      Forall as (ps1 :=> t1) <- generalize (ps, t) `wrapError` e
       info [showSmallEnv localEnv, " |- ", str e, " : ", str $ ps1 :=> t1]
       return unit
 
     tiStmt (SAlloc ann n t) = do
       extEnv n (monotype $ stackT t)
       q <- askType n
-      warn ["alloc ", n, " : ", str t, " ~> ", n, " : ", str q]
+      info ["alloc ", n, " : ", str t, " ~> ", n, " : ", str q]
       return unit
 
 ------------------------------------------------------------
@@ -100,9 +91,7 @@ tiBind n args e = do
   let t1 = foldr (:->) t0 as
   t <- withCurrentSubst t1
   ps <- withCurrentSubst ps0
-  info ["! tiBind ", show ps, " |- ", str e, " :: ", str t ]
   putEnv env
-  -- clearSubst
   generalize (ps, t)
 
 tiArg :: Arg -> TCM (Name, Type)
@@ -118,39 +107,20 @@ addArgs args = do
 
 generalize :: ([Pred], Type) -> TCM Scheme
 generalize (ps0, t0) = do
-  env <- getEnv
-  info ["> generalize", str (ps0, t0)]
-  envVars <- getFreeVars
-  -- withLogging $ info ["< getFreeVars", str envVars]
+  envVars <- getFreeEnvVars
   (ps1, t1) <- withCurrentSubst (ps0, t0)
-  -- withLogging $ info ["< withCurrentSubst ", str (ps1 :=> t1)]
   ce <- gets tcsCT
   ps2 <- reduceContext ps1
-  phi <- getCurrentSubst
-  info ["< reduceContext", str ps2, " subst=",str phi]
-  let t2 = apply phi t1
+  -- reduceContext may have extended the subst, need to reapply it
+  t2 <- withCurrentSubst t1
   let typeVars =  ftv (ps2, t2)
-  let scheme = Forall (typeVars \\ envVars) (ps2 :=> apply phi t1)
+  let scheme = Forall (typeVars \\ envVars) (ps2 :=> t2)
   info ["< generalize: ", str (legibleScheme scheme)]
   return scheme
-
-
-isFreeInEnv :: Tyvar -> TCM Bool
-isFreeInEnv tv = do
-  env <- gets tcsEnv
-  let ets = map snd (Map.toList env)
-  let etv = ftv ets
-  pure (tv `elem` etv)
 
 schemeOf :: Expr -> TCM Scheme
 schemeOf exp = wrapError ty exp where
   ty = tiExpr exp >>= generalize
-
-wrapError :: ToStr ctxt => TCM a -> ctxt -> TCM a
-wrapError m ctxt = catchError m handler where
-    handler msg =
-        throwError (decorate msg)
-    decorate msg = msg ++ "\n  - in " ++ str ctxt
 
 tiDecl :: Decl -> TCM ()
 tiDecl (ValDecl n qt) = do
@@ -159,7 +129,6 @@ tiDecl (ValDecl n qt) = do
   extEnv n s
 
 tiDecl (ValBind n as e) = do
-  info ["\nChecking ", n]
   s@(Forall tvs (qs :=> typ))  <- tiBind n as e `wrapError` n
   extEnv n s
   let exp = formLambda as typ e
@@ -169,7 +138,7 @@ tiDecl (ValBind n as e) = do
 -- check type declaration,such as `Option a = None |  Some a`
 tiDecl (TypeDecl typ@(TCon name args) alts) = do
   constructors <- tiConAlts typ alts
-  forM constructors addCon
+  forM_ constructors addCon
   let consNames = map fst constructors
   let arity = length args
   let typeInfo = (arity, consNames)
@@ -220,13 +189,15 @@ tiInstance :: Qual Pred -> [Decl] -> TCM ()
 tiInstance inst methods = do
   -- Type variables in an instance declaration are implicitly bound
   -- so they need to be renamed before the overlap check
-  inst'@(q :=> ihead@(InCls c as t)) <- renameFreeVars inst
-  warn ["+ tiInstance ", str inst']
-  ois <- getInsts c
-  checkOverlap t ois
-  forM_ methods (checkMethod ihead)
-  let anf = anfInstance inst
-  modify (addInstInfo anf)
+  inst' <- renameFreeVars inst
+  case inst' of 
+    _ :=> ihead@(InCls c as t) -> do
+      warn ["+ tiInstance ", str inst']
+      ois <- getInsts c
+      checkOverlap t ois
+      forM_ methods (checkMethod ihead)
+      let anf = anfInstance inst
+      modify (addInstInfo anf)
   where
     checkOverlap :: Type -> [Inst] -> TCM ()
     checkOverlap t [] = pure ()
@@ -234,7 +205,6 @@ tiInstance inst methods = do
       Right s -> throwError
                  (unwords ["instance",str inst,"overlaps", str oi])
       Left _ -> checkOverlap t is
-    -- matchesType t (_ :=> InCls _ _ u) = match t u
 
     findPred :: Name -> [Pred] -> Maybe Pred
     findPred cname (p:ps) | predName p == cname = Just p
@@ -247,17 +217,14 @@ tiInstance inst methods = do
       p <- maybeToTCM ("Constraint for "++cname++ " not found in type of "++name)
                       (findPred cname qs)
       subst <- liftEither (matchPred p ihead) `wrapError` ihead
-      -- warn["-- mgu=",str subst]
       let expType = apply subst genType
       let args' = apply subst args
       let exp = formLambda args' expType body
       let iTypes = apply subst (map TVar tvs)
-      -- let name' = specName  name iTypes
-      -- warn ["- checkMethod ", str (ValBind name' [] exp), " : ", str expType]
       (iq, it) <- tiExpr exp
       warn ["< tiExpr ", str exp, " : ", str (iq:=>it)]
       match it expType `wrapError` exp
-      addResolution name expType exp -- (EVar name')
+      addResolution name expType exp
       return ()
 
 formLambda :: [Arg] -> Type -> Expr -> Expr
@@ -265,9 +232,7 @@ formLambda [] typ body = body
 formLambda as typ body = ELam as body where
   addTypes [] t = []
   addTypes (a:as) (t :-> u)  = TArg (argName a) t : addTypes as u
-
--- liftEither :: MonadError e m => Either e a -> m a
--- liftEither m = catchError m throwError
+  addTypes _ _ = error "formLambda: wrong number of arguments"
 
 tiProg :: Prog -> TCM ()
 tiProg (Prog decls) = do
@@ -300,9 +265,6 @@ typeOfScheme :: Scheme -> Maybe Type
 typeOfScheme (Forall [] ([] :=> t)) = Just t
 typeOfScheme _ = Nothing
 
-maybeToTCM :: String -> Maybe a -> TCM a
-maybeToTCM msg Nothing = throwError msg
-maybeToTCM _ (Just a) = pure a
 
 ---- Classes
 
@@ -361,31 +323,24 @@ toHnf (t :~: u) = do
 toHnf pred
   | inHnf pred = return [pred]
   | otherwise = do
-      -- info ["> toHnf ", str pred]
       ce <- gets tcsIT
       case byInstM ce pred of
         Nothing -> throwError ("no instance of " ++ str pred)
         Just (preds, subst') -> do
-            -- info ["! toHnf <  byInstM ", str preds, " subst'=", str subst']
             extSubst subst'
             toHnfs preds
 
 toHnfs :: [Pred] -> TCM [Pred]
 toHnfs ps = do
   subst <- getCurrentSubst
-  -- info ["> toHnfs ", str ps, " subst=",str subst]
   ps2 <- simplifyEqualities ps >>= withCurrentSubst
-  -- info ["< simpEqs ", str ps2]
-  -- info  ["! toHnfs > toHnfs' ", str ps2]
   toHnfs' ps2
 
 toHnfs' [] = return []
 toHnfs' preds@(p:ps) = do
-  -- info ["> toHnfs' ", str preds]
   rs1 <- toHnf p
-  ps' <- withCurrentSubst ps           -- important
+  ps' <- withCurrentSubst ps   -- important, toHNf may have extended the subst
   rs2 <- toHnfs' ps'
-  -- info ["< toHnfs' ", str (rs1++rs2)]
   return (rs1 ++ rs2)
 
 
@@ -398,38 +353,7 @@ inHnf (_ :~: _) = False
 
 reduceContext :: [Pred] -> TCM [Pred]
 reduceContext preds = do
-  when (not(null preds)) $ info ["> reduceContext ", str preds]
-  ps2 <- (toHnfs preds >>= withCurrentSubst)
-  when (not(null preds)) $ info ["< reduceContext ", str ps2]
+  unless (null preds) $ info ["> reduceContext ", str preds]
+  ps2 <- toHnfs preds >>= withCurrentSubst
+  unless (null preds) $ info ["< reduceContext ", str ps2]
   return (nub ps2)
-
-
-instance HasTypes Arg where
-    apply s (UArg n) = UArg n
-    apply s (TArg n t) = TArg n (apply s t)
-    ftv (UArg n) = []
-    ftv (TArg n t) = ftv t
-
-instance HasTypes Expr where
-    apply s (EInt i) = EInt i
-    apply s (EVar n) = EVar n
-    apply s (ECon n) = ECon n
-    apply s (EApp e1 e2) = EApp (apply s e1) (apply s e2)
-    apply s (ELam args e) = ELam (apply s args) (apply s e)
-    apply s (ELet n e1 e2) = ELet n (apply s e1) (apply s e2)
-    apply s (ETyped e t) = ETyped (apply s e) (apply s t)
-    apply s (EBlock stmts) = EBlock (apply s stmts)
-    ftv (EInt _) = []
-    ftv (EVar n) = []
-    ftv (ECon n) = []
-    ftv (EApp e1 e2) = ftv e1 ++ ftv e2
-    ftv (ELam args e) = ftv args ++ ftv e
-    ftv (ELet n e1 e2) = ftv e1 ++ ftv e2
-    ftv (ETyped e t) = ftv e ++ ftv t
-    ftv (EBlock stmts) = ftv stmts
-
-instance HasTypes (Stmt ann) where
-    apply s (SExpr ann e) = SExpr ann (apply s e)
-    apply s (SAlloc ann n t) = SAlloc ann n (apply s t)
-    ftv (SExpr _ e) = ftv e
-    ftv (SAlloc _ n t) = ftv t

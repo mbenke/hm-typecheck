@@ -1,6 +1,8 @@
+{-# LANGUAGE UndecidableInstances #-}  -- for a general ToStr instance
 module ISyntax where
 import Data.List(union, intersect, nub, (\\), intercalate)
 import Types
+import Constraints(HasTypes(..))
 
 type Name = String
 data Expr
@@ -36,21 +38,21 @@ data ConAlt = ConAlt Name [Type]
   deriving (Eq, Show)
 
 
-data Prog = Prog [Decl]
+newtype Prog = Prog [Decl]
 
 instance Show Expr where
   showsPrec d (EInt n) = showsPrec 10 n
   showsPrec d (EVar n) = showString n
   showsPrec d (ECon n) = showString n
   showsPrec d (EApp e1 e2) = showParen (d > ap_prec) $
-             showsPrec (ap_prec) e1   .
+             showsPrec ap_prec e1   .
              showString " "           .
              showsPrec (ap_prec+1) e2
          where ap_prec = 10
 
   showsPrec d (ELam args e) = showParen (d > lam_prec) $
              showString "\\" . showArgs args . showString " -> " .
-             showsPrec (lam_prec) e
+             showsPrec lam_prec e
          where
            lam_prec = 1
            showArgs = showString . unwords  . map showArg
@@ -83,11 +85,12 @@ instance Show (Stmt ann) where
     show (SExpr _ e) = showExpr e
     show (SAlloc _ x t) = concat ["let ",  x, " : ", show t]
 
-instance Show Arg where show = showArg
+instance Show Arg where show :: Arg -> String
+                        show = showArg
 
 showArg :: Arg -> String
 showArg (UArg s) = s
-showArg (TArg s t) = concat["(",s,":",show t,")"]
+showArg (TArg s t) = concat ["(",s,":",show t,")"]
 
 showDecl (ValDecl n qt) = unwords [n, ":", show qt]
 showDecl (ValBind n [] e) = unwords [n, "=", show e]
@@ -101,12 +104,51 @@ argName :: Arg -> Name
 argName (UArg s) = s
 argName (TArg s t) = s
 
+class ToStr a where
+  str :: a -> String
+
+instance {-# OVERLAPPABLE  #-} Show a => ToStr a where str = show
+instance {-# OVERLAPPING   #-} ToStr String where str = id
+instance {-# OVERLAPPING   #-} ToStr Expr where str = showExpr
+instance {-# OVERLAPPING   #-} ToStr Decl where str = showDecl
+
 class HasFreeVars a where
     freeVars :: a -> [Name]
 
 instance HasFreeVars Expr where
     freeVars (EVar n) = [n]
-    freeVars (EApp e1 e2) = union (freeVars e1) (freeVars e2)
+    freeVars (EApp e1 e2) = freeVars e1 `union` freeVars e2
     freeVars (ELam args e) = freeVars e \\ map argName args
     freeVars _ = [] -- FIXME
     -- freeVars e = error("freeVars unimplemented for: " ++show e)
+
+
+instance HasTypes Arg where
+    apply s (UArg n) = UArg n
+    apply s (TArg n t) = TArg n (apply s t)
+    ftv (UArg n) = []
+    ftv (TArg n t) = ftv t
+
+instance HasTypes Expr where
+    apply s (EInt i) = EInt i
+    apply s (EVar n) = EVar n
+    apply s (ECon n) = ECon n
+    apply s (EApp e1 e2) = EApp (apply s e1) (apply s e2)
+    apply s (ELam args e) = ELam (apply s args) (apply s e)
+    apply s (ELet n e1 e2) = ELet n (apply s e1) (apply s e2)
+    apply s (ETyped e t) = ETyped (apply s e) (apply s t)
+    apply s (EBlock stmts) = EBlock (apply s stmts)
+    ftv (EInt _) = []
+    ftv (EVar n) = []
+    ftv (ECon n) = []
+    ftv (EApp e1 e2) = ftv e1 ++ ftv e2
+    ftv (ELam args e) = ftv args ++ ftv e
+    ftv (ELet n e1 e2) = ftv e1 ++ ftv e2
+    ftv (ETyped e t) = ftv e ++ ftv t
+    ftv (EBlock stmts) = ftv stmts
+
+instance HasTypes (Stmt ann) where
+    apply s (SExpr ann e) = SExpr ann (apply s e)
+    apply s (SAlloc ann n t) = SAlloc ann n (apply s t)
+    ftv (SExpr _ e) = ftv e
+    ftv (SAlloc _ n t) = ftv t
