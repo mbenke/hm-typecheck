@@ -314,13 +314,13 @@ byInstM ce p@(InCls i as t) = msum [tryInst it | it <- insts ce i] where
 -- Reducing contexts to hnf (head-normal form)
 -- e.g. (Pair[Int, b] : Eq) ~> (Int:Eq, b:Eq) ~> (b:Eq)
 
-toHnf :: Pred -> TCM [Pred]
-toHnf (t :~: u) = do
+toHnf :: Int -> Pred -> TCM [Pred]
+toHnf _ (t :~: u) = do
   subst1 <- mgu t u
   extSubst subst1
   return []
 
-toHnf pred
+toHnf depth pred
   | inHnf pred = return [pred]
   | otherwise = do
       ce <- gets tcsIT
@@ -328,19 +328,21 @@ toHnf pred
         Nothing -> throwError ("no instance of " ++ str pred)
         Just (preds, subst') -> do
             extSubst subst'
-            toHnfs preds
+            toHnfs (depth-1) preds
 
-toHnfs :: [Pred] -> TCM [Pred]
-toHnfs ps = do
+toHnfs :: Int -> [Pred] -> TCM [Pred]
+toHnfs depth ps = do
   subst <- getCurrentSubst
   ps2 <- simplifyEqualities ps >>= withCurrentSubst
-  toHnfs' ps2
+  toHnfs' depth ps2
 
-toHnfs' [] = return []
-toHnfs' preds@(p:ps) = do
-  rs1 <- toHnf p
-  ps' <- withCurrentSubst ps   -- important, toHNf may have extended the subst
-  rs2 <- toHnfs' ps'
+toHnfs' _ [] = return []
+toHnfs' 0 ps = throwError("Max context reduction depth exceeded")
+toHnfs' d preds@(p:ps) = do
+  let d' = d-1
+  rs1 <- toHnf d' p
+  ps' <- withCurrentSubst ps   -- important, toHnf may have extended the subst
+  rs2 <- toHnfs' d' ps'
   return (rs1 ++ rs2)
 
 
@@ -353,7 +355,12 @@ inHnf (_ :~: _) = False
 
 reduceContext :: [Pred] -> TCM [Pred]
 reduceContext preds = do
+  let depth = maxReductionDepth
   unless (null preds) $ info ["> reduceContext ", str preds]
-  ps2 <- toHnfs preds >>= withCurrentSubst
+  ps1 <- toHnfs depth preds `wrapError` preds
+  ps2 <- withCurrentSubst ps1
   unless (null preds) $ info ["< reduceContext ", str ps2]
   return (nub ps2)
+
+maxReductionDepth :: Int
+maxReductionDepth = 100
