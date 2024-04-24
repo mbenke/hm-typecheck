@@ -87,3 +87,22 @@ showStrings :: [String] -> ShowS
 showStrings [] = id
 showStrings [s] = showString s
 showStrings (s:ss) = showString s. showString " " . showStrings ss
+
+{-
+A measure for types, predicates and constraints for the Patterson Condition 2:
+"The constraint has fewer constructors and variables
+(taken together and counting repetitions) than the head"
+-}
+class HasMeasure a where
+  measure :: a -> Int
+
+instance HasMeasure Type where
+  measure (TVar _) = 1
+  measure (TCon _ ts) = 1 + sum (map measure ts)
+
+instance HasMeasure Pred where
+  measure (InCls _ as t) = 1 + sum (map measure as) + measure t
+  measure (t :~: u) = 1 + measure t + measure u
+
+instance HasMeasure [Pred] where
+  measure = sum . map measure

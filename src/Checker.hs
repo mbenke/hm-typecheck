@@ -190,15 +190,20 @@ tiInstance inst methods = do
   -- Type variables in an instance declaration are implicitly bound
   -- so they need to be renamed before the overlap check
   inst' <- renameFreeVars inst
-  case inst' of 
-    _ :=> ihead@(InCls c as t) -> do
+  case inst' of
+    constraint :=> ihead@(InCls c as t) -> do
       warn ["+ tiInstance ", str inst']
       ois <- getInsts c
       checkOverlap t ois
+      checkMeasure constraint ihead `wrapError` inst'
       forM_ methods (checkMethod ihead)
       let anf = anfInstance inst
       modify (addInstInfo anf)
   where
+    checkMeasure :: [Pred] -> Pred -> TCM ()
+    checkMeasure constraint ihead =
+      if measure constraint < measure ihead then return ()
+      else throwError $ unwords ["size of constraints must smaller than the head"]
     checkOverlap :: Type -> [Inst] -> TCM ()
     checkOverlap t [] = pure ()
     checkOverlap t (oi@(_ :=> InCls _ _ u):is) = case mgu t u of
