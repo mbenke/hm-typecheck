@@ -11,7 +11,7 @@ specialiseEntry :: Name -> TCM ()
 specialiseEntry name = do
   mdef <- lookupTLD name
   def@(name, scheme, args, body) <- maybeToTCM  ("No definition of " ++ name) mdef
-  typ <- maybeToTCM ("Type of entry "++name++" is not monomorphic")
+  typ <- maybeToTCM ("Type of entry "++name++":"++ str scheme ++" is not monomorphic")
          (typeOfScheme scheme)
   warn ["! specialiseEntry ", name, " : ", str typ]
   body' <- specialiseBody args body typ
