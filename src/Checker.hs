@@ -196,7 +196,8 @@ tiInstance inst methods = do
       warn ["+ tiInstance ", str inst']
       ois <- getInsts c `wrapError` header
       checkOverlap t ois
-      checkMeasure constraint ihead `wrapError` header
+      checkCoverage c as t `wrapError` header
+      checkMeasure constraint ihead `wrapError` header  
       forM_ methods (checkMethod ihead)
       let anf = anfInstance inst
       modify (addInstInfo anf)
@@ -205,12 +206,26 @@ tiInstance inst methods = do
     checkMeasure constraint ihead =
       if measure constraint < measure ihead then return ()
       else throwError $ unwords ["size of constraints must smaller than the head"]
+
     checkOverlap :: Type -> [Inst] -> TCM ()
     checkOverlap t [] = pure ()
     checkOverlap t (oi@(_ :=> InCls _ _ u):is) = case mgu t u of
       Right s -> throwError
                  (unwords ["instance",str inst,"overlaps", str oi])
       Left _ -> checkOverlap t is
+
+    checkCoverage :: String -> [Type] -> Type -> TCM ()
+    checkCoverage c as t = do
+      let strongTVs = ftv t
+      let weakTVs = ftv as
+      let undetermined = weakTVs \\ strongTVs
+      unless (null undetermined) $ do
+        let undetermined_str = intercalate ", " undetermined
+        throwError $ unwords 
+          [ "Coverage condition fails in class", c
+          , "- the type", str t, "does not determine"
+          , undetermined_str
+          ]
 
     findPred :: Name -> [Pred] -> Maybe Pred
     findPred cname (p:ps) | predName p == cname = Just p
