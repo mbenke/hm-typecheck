@@ -149,14 +149,19 @@ tiDecl (TypeDecl typ@(TCon name args) alts) = do
 -- check instance declaration such as `instance Int : Eq`
 tiDecl (InstDecl qp methods) = tiInstance qp methods
 
--- check class declaration such ass `class a:Eq { eq : a -> a -> Bool }`
-tiDecl(ClsDecl pred methods) = do
+-- check class declaration such as `class a:Eq { eq : a -> a -> Bool }`
+tiDecl(ClsDecl pred@(InCls c as (TVar mainTVar)) methods) = do
   methodNames <- forM methods tiMD
   let classInfo = (className, methodNames)
   modify (addClassInfo className (classArity, methodNames)) where
     className = predName pred
     classArity = length $ predArgs pred
     tiMD (ValDecl name ([] :=> typ)) = do
+      -- ambiguity check
+      unless (mainTVar `elem` ftv typ) $ throwError $ unlines
+        [ "- in the declaration of class " ++ className ++ ":"
+        , "  ambiguous type variable in method " ++ name ++ ": " ++ show typ
+        ]
       extEnv name $ Forall (ftv typ) ([pred] :=> typ)
       return name
     tiMD (ValDecl name (preds :=> typ)) = throwError $ unlines
@@ -169,7 +174,10 @@ tiDecl(ClsDecl pred methods) = do
            [ "- in the declaration of class " ++ className ++ ":"
            , "  only type declarations allowed, illegal declaration: " ++ show decl
            ]
-
+tiDecl(ClsDecl (InCls c as complexType) _) = throwError $ unlines
+           [ "- in the declaration of class " ++ c ++ ":"
+           , "  main argument must be a type variable, illegal type: " ++ show complexType
+           ]
 tiDecl (Pragma prag) = process prag where
     process "log" = void $ setLogging True >> warn ["-- Logging ON  --"]
     process "nolog" = setLogging False >> warn ["-- Logging OFF --"]
