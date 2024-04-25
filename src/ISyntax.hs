@@ -98,6 +98,7 @@ showDecl (ValBind n as e) = unwords [n, sas, "=", show e] where
     sas = unwords (map showArg as)
 showDecl (ClsDecl pred mdecls) = unwords ["class", show pred, "{",  showDecls mdecls, "}"] where
     showDecls ds = intercalate "; " (map showDecl ds)
+showDecl (InstDecl pred mdecls) = unwords ["instance", show pred] where
 showDecl d = show d
 
 argName :: Arg -> Name
