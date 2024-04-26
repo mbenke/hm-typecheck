@@ -37,9 +37,6 @@ run verbosity input =
       putStrLn err
       exitFailure
     Right tree -> do
-      putStrLn "\nParse Successful!"
-      -- let prog@(Prog decls) = desugar tree
-      -- forM_ decls print
       checkProg' (verbosity > 1) tree
       exitSuccess
   where
