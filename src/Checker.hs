@@ -194,21 +194,16 @@ tiConAlt result (ConAlt cname argumentTypes) = pure (cname, simpleGen constructo
   simpleGen t = Forall (ftv t) ([] :=> t)
 
 tiInstance :: Qual Pred -> [Decl] -> TCM ()
-tiInstance inst methods = do
-  -- Type variables in an instance declaration are implicitly bound
-  -- so they need to be renamed before the overlap check
-  inst' <- renameFreeVars inst
+tiInstance inst@(constraint :=> ihead@(InCls c as t)) methods = do
   let header = InstDecl inst [] -- for error messages
-  case inst' of
-    constraint :=> ihead@(InCls c as t) -> do
-      warn ["+ tiInstance ", str inst']
-      ois <- getInsts c `wrapError` header
-      checkOverlap t ois
-      checkCoverage c as t `wrapError` header
-      checkMeasure constraint ihead `wrapError` header  
-      forM_ methods (checkMethod ihead)
-      let anf = anfInstance inst
-      modify (addInstInfo anf)
+  warn ["+ tiInstance ", str inst]
+  ois <- getInsts c `wrapError` header
+  checkOverlap t ois
+  checkCoverage c as t `wrapError` header
+  checkMeasure constraint ihead `wrapError` header
+  forM_ methods (checkMethod ihead)
+  let anf = anfInstance inst
+  modify (addInstInfo anf)
   where
     checkMeasure :: [Pred] -> Pred -> TCM ()
     checkMeasure constraint ihead =
@@ -217,10 +212,19 @@ tiInstance inst methods = do
 
     checkOverlap :: Type -> [Inst] -> TCM ()
     checkOverlap t [] = pure ()
-    checkOverlap t (oi@(_ :=> InCls _ _ u):is) = case mgu t u of
-      Right s -> throwError
+    checkOverlap t (oi:is) = do
+      -- Type variables in an instance declaration are implicitly bound
+      -- so they need to be renamed before the overlap check
+      -- doing this here rather than in tiInstance for better error msgs
+      oi' <- renameFreeVars oi
+      case oi' of
+        (_ :=> InCls _ _ u) -> case mgu t u of
+          Right s -> throwError
                  (unwords ["instance",str inst,"overlaps", str oi])
-      Left _ -> checkOverlap t is
+          Left _ -> checkOverlap t is
+        (_ :=> (t1 :~: t2)) ->
+          error(unwords["internal error: illegal instance", str oi])
+
 
     checkCoverage :: String -> [Type] -> Type -> TCM ()
     checkCoverage c as t = do
@@ -229,7 +233,7 @@ tiInstance inst methods = do
       let undetermined = weakTVs \\ strongTVs
       unless (null undetermined) $ do
         let undetermined_str = intercalate ", " undetermined
-        throwError $ unwords 
+        throwError $ unwords
           [ "Coverage condition fails in class", c
           , "- the type", str t, "does not determine"
           , undetermined_str
