@@ -101,8 +101,8 @@ instance HasMeasure Type where
   measure (TCon _ ts) = 1 + sum (map measure ts)
 
 instance HasMeasure Pred where
-  measure (InCls _ as t) = 1 + sum (map measure as) + measure t
-  measure (t :~: u) = 1 + measure t + measure u
+  measure (InCls _ as t) = sum (map measure as) + measure t
+  measure (t :~: u) = measure t + measure u
 
 instance HasMeasure [Pred] where
   measure = sum . map measure
