@@ -183,6 +183,8 @@ tiDecl(ClsDecl (InCls c as complexType) _) = throwError $ unlines
 tiDecl (Pragma prag) = process prag where
     process "log" = void $ setLogging True >> warn ["-- Logging ON  --"]
     process "nolog" = setLogging False >> warn ["-- Logging OFF --"]
+    process "nocoverage" = setCoverageCheck False >> warn ["-- Coverage Checking OFF --"]
+    process "coverage" = setCoverageCheck True >> warn ["-- Coverage Checking OFF --"]
 
 tiConAlts :: Type -> [ConAlt] -> TCM [(Name, Scheme)]
 tiConAlts typ alts = forM alts (tiConAlt typ)
@@ -201,7 +203,8 @@ tiInstance inst@(constraint :=> ihead@(InCls c as t)) methods = do
   warn ["+ tiInstance ", str inst]
   ois <- getInsts c `wrapError` header
   checkOverlap t ois
-  checkCoverage c as t `wrapError` header
+  enabled <- gets tcsCoverageEnabled
+  when enabled $ checkCoverage c as t `wrapError` header
   checkMeasure constraint ihead `wrapError` header
   forM_ methods (checkMethod ihead)
   let anf = anfInstance inst

@@ -44,9 +44,9 @@ data TcState = TcState {
  tcsSpec :: SpecTable,             -- monomorphic specialisations
  tcsREnv :: ResolutionEnv,
  tcsNS :: NS,                      -- fresh name supply
- tcsSubst :: Subst                 -- current substitution, needed for type reconstruction
+ tcsSubst :: Subst,                -- current substitution, needed for type reconstruction
                                    -- may not be needed when only type checking
-
+ tcsCoverageEnabled :: Bool        -- whether to check instances for coverage
 }
 
 initState = init TcState
@@ -61,6 +61,7 @@ initState = init TcState
   , tcsREnv = Map.empty
   , tcsNS = namePool
   , tcsSubst = emptySubst
+  , tcsCoverageEnabled = True
   } where
     addInstances :: [Inst] -> TcState -> TcState
     addInstances is st = foldr addInstInfo st is
@@ -85,6 +86,15 @@ getEnv = gets tcsEnv
 
 putEnv :: Env -> T ()
 putEnv env = modify (\r -> r { tcsEnv = env })
+
+getCoverageCheck :: T Bool
+getCoverageCheck = gets tcsCoverageEnabled
+
+setCoverageCheck :: Bool -> T Bool
+setCoverageCheck switch = do
+  wasChecking <- gets tcsCoverageEnabled
+  modify (\r -> r { tcsCoverageEnabled = switch })
+  return wasChecking
 
 setLogging :: Bool -> T Bool
 setLogging switch = do
