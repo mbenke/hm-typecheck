@@ -129,6 +129,8 @@ tiDecl (ValDecl n qt) = do
   extEnv n s
 
 tiDecl (ValBind n as e) = do
+  a <- TVar <$> tcmDeplete
+  extEnv n (monotype a)
   s@(Forall tvs (qs :=> typ))  <- tiBind n as e `wrapError` n
   extEnv n s
   let exp = formLambda as typ e
