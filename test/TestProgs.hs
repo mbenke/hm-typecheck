@@ -84,6 +84,7 @@ prog2 = [prog|
     instance Stack[Int] : Ref[Int];
     instance SI : Ref[Int];
     instance Memory[a]: Ref[a] ;
+    pragma nocoverage;
     instance (ra:Ref[a], rb:Ref[b]) => Pair[ra,rb] : Ref[Pair[a,b]];
     mi = newMRef 42;
     x1 = load mi;

@@ -51,6 +51,7 @@ instance Desugar C.Decl I.Decl where
   desugar (C.ValBind i args e) = I.ValBind (desugar i) (map desugar args) (desugar e)
   desugar (C.InstDecl qp ms) = I.InstDecl (desugar qp) (desugar ms)
   desugar (C.ClsDecl p ms) = I.ClsDecl (desugar p) (desugar ms)
+  desugar (C.Pragma i)         = I.Pragma (desugar i)
 
 instance Desugar C.Methods [I.Decl] where
   desugar C.NoMethods = []

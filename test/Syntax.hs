@@ -25,9 +25,14 @@ ETyped . Expr ::= Expr1 ":" CType;
 ELam . Expr ::= "\\" [Arg] "->" Expr ;
 ELet . Expr ::= "let" LIdent "=" Expr "in" Expr;
 EApp . Expr1 ::= Expr1 Expr2 ;
+EMet . Expr1 ::= Expr1 "." Expr2;
+EIdx . Expr1 ::= Expr1 "[" Expr "]";
+EStar. Expr1 ::= "*" LIdent;
 EVar . Expr2 ::= LIdent;
 ECon . Expr2 ::= UIdent;
 EInt . Expr2 ::= Integer;
+
+
 coercions Expr 2;
 
 UArg . Arg ::= LIdent;
@@ -45,6 +50,7 @@ ValDecl. Decl ::= LIdent ":" QType;
 ValBind. Decl ::= LIdent [Arg] "=" Expr;
 InstDecl. Decl ::= "instance" QPred Methods;
 ClsDecl . Decl ::= "class" CPred Methods;
+Pragma . Decl ::= "pragma" LIdent;
 separator Decl ";";
 
 NoMethods   . Methods ::= {- empty -} ;
