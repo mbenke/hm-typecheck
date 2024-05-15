@@ -7,6 +7,8 @@ primVals =
   [ ("undefined", forAll "a" a)
   , ("zero", monotype $ int :-> int :-> int)
   , ("add", monotype $ int :-> int :-> int)
+  , ("sub", monotype $ int :-> int :-> int)
+  , ("even", monotype $ int :-> bool)
   , ("ifzero", forAll "a" $ int :-> a :-> a :-> a )
   , ("recInt", forAll "a" $ (int :-> a) :-> a :-> int :-> a)
   , ("true" , monotype bool)

@@ -173,10 +173,11 @@ showSmallEnv env = intercalate ", " [showEntry (n,s) | (n,s) <- env, not (nameIs
     withPrims = False
     showEntry (n, s) = n ++ " : " ++ str (legibleScheme s)
 
-
+maybeAskType :: Name -> TCM (Maybe Scheme)
+maybeAskType n = gets (Map.lookup n . tcsEnv)
 askType :: Name -> TCM Scheme
 askType n = do
-  result <- gets (Map.lookup n . tcsEnv)
+  result <- maybeAskType n
   case result of
     Just t -> return t
     Nothing -> throwError $ "Unknown name: " ++ n

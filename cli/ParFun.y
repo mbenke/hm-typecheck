@@ -82,11 +82,12 @@ import LexFun
   'in'       { PT _ (TS _ 15)     }
   'instance' { PT _ (TS _ 16)     }
   'let'      { PT _ (TS _ 17)     }
-  'pragma'   { PT _ (TS _ 18)     }
-  'type'     { PT _ (TS _ 19)     }
-  '{'        { PT _ (TS _ 20)     }
-  '|'        { PT _ (TS _ 21)     }
-  '}'        { PT _ (TS _ 22)     }
+  'mutual'   { PT _ (TS _ 18)     }
+  'pragma'   { PT _ (TS _ 19)     }
+  'type'     { PT _ (TS _ 20)     }
+  '{'        { PT _ (TS _ 21)     }
+  '|'        { PT _ (TS _ 22)     }
+  '}'        { PT _ (TS _ 23)     }
   L_integ    { PT _ (TI $$)       }
   L_UIdent   { PT _ (T_UIdent $$) }
   L_LIdent   { PT _ (T_LIdent $$) }
@@ -154,6 +155,7 @@ Decl
   : 'type' CType TyDeRhs { AbsFun.TypeDecl $2 $3 }
   | LIdent ':' QType { AbsFun.ValDecl $1 $3 }
   | LIdent ListArg '=' Expr { AbsFun.ValBind $1 $2 $4 }
+  | 'mutual' '{' ListDecl '}' { AbsFun.Mutual $3 }
   | 'instance' QPred Methods { AbsFun.InstDecl $2 $3 }
   | 'class' CPred Methods { AbsFun.ClsDecl $2 $3 }
   | 'pragma' LIdent { AbsFun.Pragma $2 }

@@ -48,6 +48,7 @@ separator Stmt ";";
 TypeDecl. Decl ::= "type" CType TyDeRhs;
 ValDecl. Decl ::= LIdent ":" QType;
 ValBind. Decl ::= LIdent [Arg] "=" Expr;
+Mutual.  Decl ::= "mutual" "{" [Decl] "}";
 InstDecl. Decl ::= "instance" QPred Methods;
 ClsDecl . Decl ::= "class" CPred Methods;
 Pragma . Decl ::= "pragma" LIdent;

@@ -49,6 +49,7 @@ instance Desugar C.Decl I.Decl where
   desugar (C.TypeDecl ct rhs) = I.TypeDecl (desugar ct) (desugar rhs)
   desugar (C.ValDecl i qt) = I.ValDecl (desugar i) (desugar qt)
   desugar (C.ValBind i args e) = I.ValBind (desugar i) (map desugar args) (desugar e)
+  desugar (C.Mutual ds) = I.Mutual (map desugar ds)
   desugar (C.InstDecl qp ms) = I.InstDecl (desugar qp) (desugar ms)
   desugar (C.ClsDecl p ms) = I.ClsDecl (desugar p) (desugar ms)
   desugar (C.Pragma i)         = I.Pragma (desugar i)

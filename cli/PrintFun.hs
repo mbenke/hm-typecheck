@@ -186,6 +186,7 @@ instance Print AbsFun.Decl where
     AbsFun.TypeDecl ctype tyderhs -> prPrec i 0 (concatD [doc (showString "type"), prt 0 ctype, prt 0 tyderhs])
     AbsFun.ValDecl lident qtype -> prPrec i 0 (concatD [prt 0 lident, doc (showString ":"), prt 0 qtype])
     AbsFun.ValBind lident args expr -> prPrec i 0 (concatD [prt 0 lident, prt 0 args, doc (showString "="), prt 0 expr])
+    AbsFun.Mutual decls -> prPrec i 0 (concatD [doc (showString "mutual"), doc (showString "{"), prt 0 decls, doc (showString "}")])
     AbsFun.InstDecl qpred methods -> prPrec i 0 (concatD [doc (showString "instance"), prt 0 qpred, prt 0 methods])
     AbsFun.ClsDecl cpred methods -> prPrec i 0 (concatD [doc (showString "class"), prt 0 cpred, prt 0 methods])
     AbsFun.Pragma lident -> prPrec i 0 (concatD [doc (showString "pragma"), prt 0 lident])

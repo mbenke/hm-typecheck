@@ -47,11 +47,12 @@ tiExpr e@(EApp fun arg) = do
   s <- getSubst
   let tr' = apply s tr
   let preds = apply s (ps ++ qs)
+  -- info ["< EApp ", str fun, ":", str t1, "@", str arg,  " : ", str (preds :=> tr')]
   return (preds, tr')
 
-tiExpr exp@(ELet x e1 e2) = do
-  s <- tiBind x [] e1
-  (qs, t) <- withExtEnv x s (tiExpr e2)
+tiExpr exp@(ELet x e1 e2) = withLocalEnv do
+  tiBindgroup [ValBind x [] e1]
+  (qs, t) <- tiExpr e2
   return (qs, t)
 
 tiExpr (ETyped e t) = do
@@ -83,16 +84,20 @@ tiExpr (EBlock stmts) = withLocalEnv (go stmts) where
 
 ------------------------------------------------------------
 
-tiBind :: Name -> [Arg] -> Expr -> TCM Scheme
-tiBind n args e = do
-  env <- getEnv
+tiBind :: Bind -> TCM ([Pred], Type)
+tiBind (Bind n args e) = withLocalEnv do
   as <- addArgs args
   (ps0, t0) <- tiExpr e
   let t1 = foldr (:->) t0 as
+  -- Unify the inferred type with the assumed type variable
+  assumed <- askType n
+  (aq :=> at) <- freshInst assumed
+  unify at t1
   t <- withCurrentSubst t1
   ps <- withCurrentSubst ps0
-  putEnv env
-  generalize (ps, t)
+  warn ["< tiBind ", n, " : ", str (ps :=> t)]
+  return (ps, t)
+
 
 tiArg :: Arg -> TCM (Name, Type)
 tiArg (UArg name) = do
@@ -128,14 +133,13 @@ tiDecl (ValDecl n qt) = do
   let s = Forall tvs qt
   extEnv n s
 
-tiDecl (ValBind n as e) = do
-  a <- TVar <$> tcmDeplete
-  extEnv n (monotype a)
-  s@(Forall tvs (qs :=> typ))  <- tiBind n as e `wrapError` n
-  extEnv n s
+tiDecl d@(ValBind n as e) = do
+  tiBindgroup [d]
+  Forall tvs (qs :=> typ) <- askType n
   let exp = formLambda as typ e
   addResolution n typ exp
 
+tiDecl (Mutual ds) = tiBindgroup ds
 
 -- check type declaration,such as `Option a = None |  Some a`
 tiDecl (TypeDecl typ@(TCon name args) alts) = do
@@ -279,6 +283,36 @@ tiProg (Prog decls) = do
     cleanTiDecls = mapM_ cleanTiDecl
     cleanTiDecl d = clearSubst >> tiDecl d
 
+
+tiBindgroup :: [Decl] -> TCM ()   -- TODO: specialisation
+tiBindgroup binds = do
+  binds <- scanDecls binds
+  warn ["> tiBindgroup ", str binds]
+  -- cannot clean substitution when doing mutual recursion
+  qts <- mapM tiBind binds
+  qts' <- withCurrentSubst qts
+  schemes <- mapM generalize qts'
+  let names = map bindName binds
+  let results = zip names schemes
+  mapM_ (uncurry extEnv) results
+  where
+    scanDecls :: [Decl] -> TCM [Bind]
+    scanDecls [] = return []
+    scanDecls (ValDecl n qt:ValBind n' as e:ds) | n == n' = do
+    -- explicitly typed binding, add declared type to the environment
+      let tvs = ftv qt
+      let s = Forall tvs qt
+      extEnv n s
+      bs <- scanDecls ds
+      return (Bind n as e:bs)
+    scanDecls (ValBind n as e:ds) = do
+    -- untyped binding, add fresh type variable to the environment
+      a <- TVar <$> tcmDeplete
+      extEnv n (monotype a)
+      bs <- scanDecls ds
+      return (Bind n as e:bs)
+    scanDecls (d:ds) = throwError ("illegal declaration in mutual: " ++ show d)
+
 buildTLD :: [Decl] -> TCM TLDict
 buildTLD decls = do
   tld <- foldM addTLD Map.empty decls
@@ -363,7 +397,8 @@ toHnf depth pred
   | otherwise = do
       ce <- gets tcsIT
       case byInstM ce pred of
-        Nothing -> throwError ("no instance of " ++ str pred)
+        Nothing -> throwError ("no instance of " ++ str pred
+                  ++"\nKnown instances:\n"++str ce)
         Just (preds, subst') -> do
             extSubst subst'
             toHnfs (depth-1) preds
