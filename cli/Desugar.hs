@@ -50,7 +50,11 @@ instance Desugar C.Expr I.Expr where
   desugar (C.EInt n)       = I.EInt n
   desugar (C.EBlock stmts) = I.EBlock (map desugar stmts)
   desugar (C.ETyped e t)   = I.ETyped (desugar e) (desugar t)
+  desugar (C.ECase e alts) = I.ECase (desugar e) (map desugar alts)
   desugar e = error $ "C.Expr.desugar unimplemented for  " ++ show e
+
+instance Desugar C.CaseAlt I.CaseAlt where
+  desugar (C.CaseAlt i args e) = I.CaseAlt (desugar i) (map desugar args) (desugar e)
 
 instance Desugar C.Stmt (I.Stmt String) where
   desugar stmt@(C.SExpr e)     = I.SExpr (printTree stmt) (desugarRhs e)
