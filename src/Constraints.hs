@@ -138,7 +138,6 @@ solve ((l,r):cs) s = do
   s'' <- solve cs s'
   pure (s''<>s')
 
-
 {-
 solve ::  MonadError String m => [(Type, Type)] -> m Subst
 solve [] = pure mempty
@@ -185,6 +184,13 @@ errInfinite u t = unwords [
 unifyTypes :: MonadError String m => [Type] -> [Type] -> m Subst
 unifyTypes ts us = solve (zip ts us) mempty
 
+
+unifyAllTypes :: MonadError String m => [Type] -> m Subst
+unifyAllTypes [] = pure mempty
+unifyAllTypes (t:ts) = do
+  s1 <- unifyAllTypes ts
+  s2 <- mgu (apply s1 t) (apply s1 t)
+  pure (s2 <> s1)
 
 onPred m (IsIn i t) (IsIn i' t')
   | i == i' = m t t'

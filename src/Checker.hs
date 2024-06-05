@@ -82,6 +82,44 @@ tiExpr (EBlock stmts) = withLocalEnv (go stmts) where
       info ["alloc ", n, " : ", str t, " ~> ", n, " : ", str q]
       return unit
 
+tiExpr (ECase e alts) = do -- TODO unify scrutinised expr type with con target
+  targetType <- TVar <$> tcmDeplete
+  (ps, scrutType) <- tiExpr e   -- scrutinisied expresion
+  ps' <- tiAlts scrutType targetType alts
+  resultType <- withCurrentSubst targetType
+  return (ps ++ ps', resultType)
+
+tiAlts ::Type -> Type -> [CaseAlt] -> TCM [Pred]
+tiAlts scrut target [] = return []
+tiAlts scrut target (alt:alts) = do
+  warn ["> tiAlts, target : ", str target]
+  (ps, expected) <- tiAlt target alt
+  unify scrut expected `wrapError` alt
+  target' <- withCurrentSubst target
+  scrut' <- withCurrentSubst scrut
+  ps' <- tiAlts scrut' target' alts
+  return (ps ++ ps')
+
+
+tiAlt :: Type -> CaseAlt -> TCM ([Pred], Type)  -- result to be unified with scrutType
+tiAlt target alt@(CaseAlt con args e) = withLocalEnv do
+  warn ["> tiAlt ", str alt, " : ", str target]
+  conScheme <- askType con
+  (qs :=> conType) <- freshInst conScheme
+  (argTypes, conResultType) <- addConArgs conType args
+  warn ["! tiAlt ", con, ":", str conType, " ", str argTypes]
+  (ps,t) <- tiExpr e
+  unify target t `wrapError` alt
+  withCurrentSubst (ps, conResultType)
+
+addConArgs :: Type -> [Arg] -> TCM ([Type], Type)
+addConArgs conType [] = return ([], conType)
+addConArgs (at :-> rest) (arg:args) = do
+  let name = argName arg
+  extEnv name (monotype at)
+  (ats, rt) <- addConArgs rest args
+  return (at:ats, rt)
+
 ------------------------------------------------------------
 
 tiBind :: Bind -> TCM ([Pred], Type)
@@ -204,7 +242,7 @@ tiConAlt result (ConAlt cname argumentTypes) = pure (cname, simpleGen constructo
 tiInstance :: Qual Pred -> [Decl] -> TCM ()
 tiInstance inst@(constraint :=> ihead@(InCls c as t)) methods = do
   let header = InstDecl inst [] -- for error messages
-  warn ["+ tiInstance ", str inst]
+  -- warn ["+ tiInstance ", str inst]
   ois <- getInsts c `wrapError` header
   checkOverlap t ois
   enabled <- gets tcsCoverageEnabled
@@ -287,7 +325,7 @@ tiProg (Prog decls) = do
 tiBindgroup :: [Decl] -> TCM ()   -- TODO: specialisation
 tiBindgroup binds = do
   binds <- scanDecls binds
-  warn ["> tiBindgroup ", str binds]
+  -- warn ["> tiBindgroup ", str binds]
   -- cannot clean substitution when doing mutual recursion
   qts <- mapM tiBind binds
   qts' <- withCurrentSubst qts
