@@ -14,6 +14,8 @@ module ParFun
   , pExpr2
   , pArg
   , pListArg
+  , pCaseAlt
+  , pListCaseAlt
   , pStmt
   , pListStmt
   , pDecl
@@ -45,6 +47,8 @@ import LexFun
 %name pExpr2 Expr2
 %name pArg Arg
 %name pListArg ListArg
+%name pCaseAlt CaseAlt
+%name pListCaseAlt ListCaseAlt
 %name pStmt Stmt
 %name pListStmt ListStmt
 %name pDecl Decl
@@ -78,16 +82,18 @@ import LexFun
   '['        { PT _ (TS _ 11)     }
   '\\'       { PT _ (TS _ 12)     }
   ']'        { PT _ (TS _ 13)     }
-  'class'    { PT _ (TS _ 14)     }
-  'in'       { PT _ (TS _ 15)     }
-  'instance' { PT _ (TS _ 16)     }
-  'let'      { PT _ (TS _ 17)     }
-  'mutual'   { PT _ (TS _ 18)     }
-  'pragma'   { PT _ (TS _ 19)     }
-  'type'     { PT _ (TS _ 20)     }
-  '{'        { PT _ (TS _ 21)     }
-  '|'        { PT _ (TS _ 22)     }
-  '}'        { PT _ (TS _ 23)     }
+  'case'     { PT _ (TS _ 14)     }
+  'class'    { PT _ (TS _ 15)     }
+  'in'       { PT _ (TS _ 16)     }
+  'instance' { PT _ (TS _ 17)     }
+  'let'      { PT _ (TS _ 18)     }
+  'mutual'   { PT _ (TS _ 19)     }
+  'of'       { PT _ (TS _ 20)     }
+  'pragma'   { PT _ (TS _ 21)     }
+  'type'     { PT _ (TS _ 22)     }
+  '{'        { PT _ (TS _ 23)     }
+  '|'        { PT _ (TS _ 24)     }
+  '}'        { PT _ (TS _ 25)     }
   L_integ    { PT _ (TI $$)       }
   L_UIdent   { PT _ (T_UIdent $$) }
   L_LIdent   { PT _ (T_LIdent $$) }
@@ -112,6 +118,7 @@ Expr
   | Expr1 ':' CType { AbsFun.ETyped $1 $3 }
   | '\\' ListArg '->' Expr { AbsFun.ELam $2 $4 }
   | 'let' LIdent '=' Expr 'in' Expr { AbsFun.ELet $2 $4 $6 }
+  | 'case' Expr 'of' '{' ListCaseAlt '}' { AbsFun.ECase $2 $5 }
   | Expr1 { $1 }
 
 Expr1 :: { AbsFun.Expr }
@@ -136,6 +143,15 @@ Arg
 
 ListArg :: { [AbsFun.Arg] }
 ListArg : {- empty -} { [] } | Arg ListArg { (:) $1 $2 }
+
+CaseAlt :: { AbsFun.CaseAlt }
+CaseAlt : UIdent ListArg '->' Expr { AbsFun.CaseAlt $1 $2 $4 }
+
+ListCaseAlt :: { [AbsFun.CaseAlt] }
+ListCaseAlt
+  : {- empty -} { [] }
+  | CaseAlt { (:[]) $1 }
+  | CaseAlt ';' ListCaseAlt { (:) $1 $3 }
 
 Stmt :: { AbsFun.Stmt }
 Stmt

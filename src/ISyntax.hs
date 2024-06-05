@@ -14,9 +14,13 @@ data Expr
     | EInt Integer           -- integer literal
     | EBlock [Stmt String]   -- desugared statements annotated with their source form
     | ETyped Expr Type
+    | ECase Expr [CaseAlt]
   deriving Eq
 
 data Arg = UArg Name | TArg Name Type deriving Eq
+
+-- case alternative: constructor name, bound variables, expression
+data CaseAlt = CaseAlt Name [Arg] Expr deriving Eq
 
 data Stmt ann             -- ann - annotation (e.g. stmt before desugar)
     = SExpr ann Expr
@@ -74,6 +78,8 @@ instance Show Expr where
              showsPrec 0 e .
              showString " : " . showsPrec 10 t
          where typ_prec = 2
+  showsPrec d (ECase e alts) = showString "case " . showsPrec 0 e . showString " of {" .
+                               showString ( intercalate ";\n  " (map show alts)) . ('}' :)
 
 
 showExpr :: Expr -> String
@@ -87,6 +93,7 @@ showExpr :: Expr -> String
 showExpr e = show e
 
 instance Show (Stmt ann) where
+    show :: Stmt ann -> String
     show (SExpr _ e) = showExpr e
     show (SAlloc _ x t) = concat ["let ",  x, " : ", show t]
 
@@ -96,6 +103,9 @@ instance Show Arg where show :: Arg -> String
 showArg :: Arg -> String
 showArg (UArg s) = s
 showArg (TArg s t) = concat ["(",s,":",show t,")"]
+
+instance Show CaseAlt where
+    show (CaseAlt c args e) = concat [c, " ", unwords (map show args), " -> ", show e]
 
 showDecl (ValDecl n qt) = unwords [n, ":", show qt]
 showDecl (ValBind n [] e) = unwords [n, "=", show e]

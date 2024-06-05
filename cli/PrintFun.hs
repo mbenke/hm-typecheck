@@ -152,6 +152,7 @@ instance Print AbsFun.Expr where
     AbsFun.ETyped expr ctype -> prPrec i 0 (concatD [prt 1 expr, doc (showString ":"), prt 0 ctype])
     AbsFun.ELam args expr -> prPrec i 0 (concatD [doc (showString "\\"), prt 0 args, doc (showString "->"), prt 0 expr])
     AbsFun.ELet lident expr1 expr2 -> prPrec i 0 (concatD [doc (showString "let"), prt 0 lident, doc (showString "="), prt 0 expr1, doc (showString "in"), prt 0 expr2])
+    AbsFun.ECase expr casealts -> prPrec i 0 (concatD [doc (showString "case"), prt 0 expr, doc (showString "of"), doc (showString "{"), prt 0 casealts, doc (showString "}")])
     AbsFun.EApp expr1 expr2 -> prPrec i 1 (concatD [prt 1 expr1, prt 2 expr2])
     AbsFun.EMet expr1 expr2 -> prPrec i 1 (concatD [prt 1 expr1, doc (showString "."), prt 2 expr2])
     AbsFun.EIdx expr1 expr2 -> prPrec i 1 (concatD [prt 1 expr1, doc (showString "["), prt 0 expr2, doc (showString "]")])
@@ -168,6 +169,15 @@ instance Print AbsFun.Arg where
 instance Print [AbsFun.Arg] where
   prt _ [] = concatD []
   prt _ (x:xs) = concatD [prt 0 x, prt 0 xs]
+
+instance Print AbsFun.CaseAlt where
+  prt i = \case
+    AbsFun.CaseAlt uident args expr -> prPrec i 0 (concatD [prt 0 uident, prt 0 args, doc (showString "->"), prt 0 expr])
+
+instance Print [AbsFun.CaseAlt] where
+  prt _ [] = concatD []
+  prt _ [x] = concatD [prt 0 x]
+  prt _ (x:xs) = concatD [prt 0 x, doc (showString ";"), prt 0 xs]
 
 instance Print AbsFun.Stmt where
   prt i = \case

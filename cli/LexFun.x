@@ -166,16 +166,17 @@ eitherResIdent tv s = treeFind resWords
 -- | The keywords and symbols of the language organized as binary search tree.
 resWords :: BTree
 resWords =
-  b "\\" 12
-    (b "." 6
-       (b "*" 3 (b ")" 2 (b "(" 1 N N) N) (b "->" 5 (b "," 4 N N) N))
-       (b "=" 9 (b ";" 8 (b ":" 7 N N) N) (b "[" 11 (b "=>" 10 N N) N)))
-    (b "mutual" 18
-       (b "in" 15
-          (b "class" 14 (b "]" 13 N N) N)
-          (b "let" 17 (b "instance" 16 N N) N))
-       (b "{" 21
-          (b "type" 20 (b "pragma" 19 N N) N) (b "}" 23 (b "|" 22 N N) N)))
+  b "]" 13
+    (b ":" 7
+       (b "," 4
+          (b ")" 2 (b "(" 1 N N) (b "*" 3 N N)) (b "." 6 (b "->" 5 N N) N))
+       (b "=>" 10 (b "=" 9 (b ";" 8 N N) N) (b "\\" 12 (b "[" 11 N N) N)))
+    (b "of" 20
+       (b "instance" 17
+          (b "class" 15 (b "case" 14 N N) (b "in" 16 N N))
+          (b "mutual" 19 (b "let" 18 N N) N))
+       (b "{" 23
+          (b "type" 22 (b "pragma" 21 N N) N) (b "}" 25 (b "|" 24 N N) N)))
   where
   b s n = B bs (TS bs n)
     where

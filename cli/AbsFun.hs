@@ -18,6 +18,7 @@ data Expr
     | ETyped Expr CType
     | ELam [Arg] Expr
     | ELet LIdent Expr Expr
+    | ECase Expr [CaseAlt]
     | EApp Expr Expr
     | EMet Expr Expr
     | EIdx Expr Expr
@@ -28,6 +29,9 @@ data Expr
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Arg = UArg LIdent | TArg LIdent CType
+  deriving (C.Eq, C.Ord, C.Show, C.Read)
+
+data CaseAlt = CaseAlt UIdent [Arg] Expr
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data Stmt
