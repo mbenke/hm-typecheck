@@ -1,6 +1,6 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell #-}
 module Syntax(
-  Prog(..), Expr(..), Arg(..), Decl(..), Name,
+  Prog(..), Expr(..), Arg(..), Decl(..), Name, CaseAlt(..),
   CType(..), CPred(..), QPred(..), QType(..),
   TyDeRhs(..), ConAlt(..), LIdent(..), UIdent(..), Methods(..),
   name, expr, prog, decl, showExpr,
@@ -24,6 +24,7 @@ EBlock . Expr ::= "{" [Stmt] "}";
 ETyped . Expr ::= Expr1 ":" CType;
 ELam . Expr ::= "\\" [Arg] "->" Expr ;
 ELet . Expr ::= "let" LIdent "=" Expr "in" Expr;
+ECase . Expr ::= "case" Expr "of" "{" [CaseAlt] "}";
 EApp . Expr1 ::= Expr1 Expr2 ;
 EMet . Expr1 ::= Expr1 "." Expr2;
 EIdx . Expr1 ::= Expr1 "[" Expr "]";
@@ -38,6 +39,9 @@ coercions Expr 2;
 UArg . Arg ::= LIdent;
 TArg . Arg ::= "(" LIdent ":" CType ")";
 separator Arg "";
+
+CaseAlt . CaseAlt ::= UIdent [Arg] "->" Expr;
+separator CaseAlt ";";
 
 SExpr   . Stmt ::= Expr;
 SAssign . Stmt ::= Expr "=" Expr;
@@ -94,6 +98,7 @@ separator CType ",";
 
 comment "//" ;
 comment "/*" "*/" ;
+
 |]
 
 type Name = String

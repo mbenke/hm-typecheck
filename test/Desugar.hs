@@ -44,6 +44,10 @@ instance Desugar C.Expr I.Expr where
   desugar (C.ECon i) = I.ECon (desugar i)
   desugar (C.EInt n) = I.EInt n
   desugar (C.ETyped e t)   = I.ETyped (desugar e) (desugar t)
+  desugar (C.ECase e alts) = I.ECase (desugar e) (map desugar alts)
+
+instance Desugar C.CaseAlt I.CaseAlt where
+  desugar (C.CaseAlt i args e) = I.CaseAlt (desugar i) (map desugar args) (desugar e)
 
 instance Desugar C.Decl I.Decl where
   desugar (C.TypeDecl ct rhs) = I.TypeDecl (desugar ct) (desugar rhs)

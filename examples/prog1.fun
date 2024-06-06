@@ -12,8 +12,15 @@ instance a:Eq => Option[a] : Eq;
 idInt1 x = x:Int;
 idInt2 (x:Int) = x;
 
-len = foldr (\ c n -> add 1 n) 0;
+ifthen c t e = case c of { True -> t; False -> e };
+
+len xs = case xs of { Nil -> 0; Cons y ys -> add 1 (len ys) };
+f0 = len Nil;
 sum = foldr add 0;
+
+elem x xs = case xs of {
+  Nil -> False;
+  Cons y ys -> or (eq x y) (elem  x ys) };
 elem x xs = foldr (\y r -> or (eq x y) r) false xs;
 f1 = elem 1 nil;
 f2 x xs = or (eq x (head xs)) (eq (tail xs) nil);
