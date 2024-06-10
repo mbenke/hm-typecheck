@@ -1,0 +1,8 @@
+  let a : int
+  let c : int
+  let b : (int * int)
+  a := 42
+  b := (a, 0)
+  fst b := 1337
+  c := fst b
+  return c

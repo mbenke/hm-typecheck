@@ -1,0 +1,10 @@
+function f(a: int, x: int) -> int {
+  let c : int
+  let b : (int * int)
+  b := (a, 0)
+  fst b := x
+  c := fst b
+  return c
+}
+
+return f(42, 1337)

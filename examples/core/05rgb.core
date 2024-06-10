@@ -1,0 +1,12 @@
+let x : unit + (unit + unit)
+x := inr(inr ())
+let y : int
+
+match x with {
+  inl t1 => y := 1
+  inr t2 => match t2 with {
+            inl t3 => y := 2
+            inr t4 => y := 4
+            }
+  }
+return y

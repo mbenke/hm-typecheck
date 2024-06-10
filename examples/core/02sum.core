@@ -1,0 +1,8 @@
+let p : int * int
+let s : bool + int
+s := inl false
+s := inr 42
+match s with {
+  inl b => return 17
+  inr i =>  return i
+}

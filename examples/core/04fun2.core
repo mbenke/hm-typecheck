@@ -1,0 +1,25 @@
+function f(a: int, x: int) -> int {
+  let c : int
+  let b : int * int
+  b := (a, 0)
+  fst b := x
+  c := fst b
+  return c
+}
+
+function g(p: int*int) -> int {
+  return f(fst p, snd p)
+}
+
+function idp(p: int * int) -> int *int {
+  return p
+}
+
+function h(a: int, b: int) -> int * int
+{
+  return idp( (a,b))
+}
+
+
+
+return g(h((42, 1337)))
