@@ -68,7 +68,7 @@ executable fun
                       hm
 
     build-tool-depends: alex:alex, happy:happy
-    hs-source-dirs:   cli
+    hs-source-dirs:   fun
     -- default-language: Haskell2010
     default-language: GHC2021
 
