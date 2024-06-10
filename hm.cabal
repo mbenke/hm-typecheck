@@ -32,7 +32,8 @@ library
       Common.RIO
       ISyntax Checker Constraints Types NameSupply Prims TCM
       Specialise
-
+      Language.Yul
+      Language.Yul.Parser 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions: 
     build-depends:    base ^>=4.16.4.0,
