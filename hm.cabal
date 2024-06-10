@@ -27,6 +27,9 @@ library
     -- Modules included in this executable, other than Main.
     exposed-modules:
       Common.Debug
+      Common.LightYear
+      Common.Pretty
+      Common.RIO
       ISyntax Checker Constraints Types NameSupply Prims TCM
       Specialise
 
@@ -35,6 +38,9 @@ library
     build-depends:    base ^>=4.16.4.0,
                       mtl >= 2.2,
                       containers >= 0.6,
+                      megaparsec ^>= 9.6,
+                      parser-combinators ^>= 1.3,
+                      pretty ^>=  1.1,
 
 
     hs-source-dirs:   src
