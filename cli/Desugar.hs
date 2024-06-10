@@ -7,7 +7,7 @@ import AbsFun(UIdent(..), LIdent(..), CType(..), CPred(..), QType(..), QPred(..)
 import PrintFun(printTree)
 import qualified ISyntax as I
 import Types
-import Debug
+import Common.Debug
 
 type Name = String
 

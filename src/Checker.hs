@@ -11,7 +11,7 @@ import Types
 import NameSupply
 import Constraints
 import TCM
-import Debug
+import Common.Debug
 
 
 tiExpr :: Expr -> TCM ([Pred], Type)
