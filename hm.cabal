@@ -30,6 +30,8 @@ library
       Common.LightYear
       Common.Pretty
       Common.RIO
+      Language.Core
+      Language.Core.Parser
       ISyntax Checker Constraints Types NameSupply Prims TCM
       Specialise
       Language.Yul
