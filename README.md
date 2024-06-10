@@ -25,7 +25,7 @@ Here `Ref[a]` describes references to values of type `a`.
 cabal run fun examples/prog1
 ```
 
-Requires a working GHC installation, see e.g. https://www.haskell.org/ghcup/ 
+Requires a working GHC installation, see e.g. https://www.haskell.org/ghcup/
 
 ### Running
 
@@ -38,8 +38,9 @@ cabal run fun examples/prog1
 ### Directories
 
  * `src` - the typechecker library
- * `cli` - commandline typechecker
+ * `fun` - commandline typechecker for a functional IL
  * `examples` - some program examples
+ * `yule` - Core to Yul translator
 
 ### Modules
 
