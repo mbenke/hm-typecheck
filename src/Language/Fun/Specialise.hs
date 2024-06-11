@@ -1,11 +1,11 @@
-module Specialise where
+module Language.Fun.Specialise where
 import Control.Monad.Error.Class(throwError)
 import Data.List(intercalate)
 import TCM
-import Checker
-import ISyntax
-import Constraints
-import Types
+import Language.Fun.Checker
+import Language.Fun.ISyntax
+import Language.Fun.Constraints
+import Language.Fun.Types
 
 specialiseEntry :: Name -> TCM ()
 specialiseEntry name = do

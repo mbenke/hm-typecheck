@@ -1,8 +1,8 @@
 {-# LANGUAGE UndecidableInstances #-}  -- for a general ToStr instance
-module ISyntax where
+module Language.Fun.ISyntax where
 import Data.List(union, intersect, nub, (\\), intercalate)
-import Types
-import Constraints(HasTypes(..))
+import Language.Fun.Types
+import Language.Fun.Constraints(HasTypes(..))
 
 type Name = String
 data Expr

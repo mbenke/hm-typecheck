@@ -1,8 +1,8 @@
-module Constraints where
+module Language.Fun.Constraints where
 import Control.Monad.Error.Class
 import Data.List(union, intersect, nub, (\\), deleteBy, nubBy, intercalate)
 import Text.Show(showListWith)
-import Types
+import Language.Fun.Types
 
 -- Using ideas from "Typing Haskell in Haskell" by Mark P. Jones
 

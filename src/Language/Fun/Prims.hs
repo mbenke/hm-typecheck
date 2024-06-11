@@ -1,6 +1,6 @@
-module Prims where
-import Types
-import ISyntax
+module Language.Fun.Prims where
+import Language.Fun.Types
+import Language.Fun.ISyntax
 
 primVals :: [(Name, Scheme)]
 primVals =

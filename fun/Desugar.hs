@@ -5,8 +5,8 @@ module Desugar where
 import qualified AbsFun as C
 import AbsFun(UIdent(..), LIdent(..), CType(..), CPred(..), QType(..), QPred(..))
 import PrintFun(printTree)
-import qualified ISyntax as I
-import Types
+import qualified Language.Fun.ISyntax as I
+import Language.Fun.Types
 import Common.Debug
 
 type Name = String

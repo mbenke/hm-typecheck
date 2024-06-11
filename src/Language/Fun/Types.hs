@@ -1,4 +1,4 @@
-module Types where
+module Language.Fun.Types where
 import Data.List(intercalate)
 import Text.Show
 

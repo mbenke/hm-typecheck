@@ -7,12 +7,12 @@ import Data.List(intercalate)
 import qualified Data.Map as Map
 import Data.Maybe(isJust)
 
-import NameSupply
-import Constraints
-import ISyntax
+import Common.NameSupply
+import Language.Fun.Constraints
+import Language.Fun.ISyntax
 
-import Prims(primVals, primTypes, primClasses, eqInstances, refInstances)
-import Types
+import Language.Fun.Prims(primVals, primTypes, primClasses, eqInstances, refInstances)
+import Language.Fun.Types
 
 
 type Table a = Map.Map Name a

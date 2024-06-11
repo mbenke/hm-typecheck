@@ -4,8 +4,8 @@
 module Desugar where
 import Syntax
 import qualified Syntax as C
-import qualified ISyntax as I
-import Types
+import qualified Language.Fun.ISyntax as I
+import Language.Fun.Types
 
 class Desugar c a | c -> a where
   desugar :: c -> a

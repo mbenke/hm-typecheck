@@ -10,10 +10,10 @@ import LexFun   ( Token, mkPosToken )
 import ParFun   ( pProg, myLexer )
 import PrintFun ( printTree)
 import Desugar
-import ISyntax
+import Language.Fun.ISyntax
+import Language.Fun.Checker
 import TCM
-import Checker
-import Specialise
+import Language.Fun.Specialise
 
 type Err        = Either String
 type ParseFun a = [Token] -> Err a

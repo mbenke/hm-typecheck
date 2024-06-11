@@ -44,6 +44,7 @@ cabal run fun examples/prog1
 
 ### Modules
 
+### Language/Fun
 * `Checker` - central typechecker functions
 * `Constraints` - unification and matching
 * `ISyntax` - internal syntax - the tree coming from parser is desugared into this form and then fed into typechecker; this allows some independence from concrete syntax

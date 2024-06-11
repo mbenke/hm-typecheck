@@ -1,15 +1,16 @@
 {-# LANGUAGE FlexibleInstances #-}
-module Checker where
+module Language.Fun.Checker where
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.State
 import Data.List((\\), nub, intercalate)
 import qualified Data.Map as Map
 
-import ISyntax
-import Types
-import NameSupply
-import Constraints
+import Language.Fun.ISyntax
+import Language.Fun.Types
+import Language.Fun.Constraints
+    ( HasTypes(apply, ftv), Subst, expel, match, mgu, matchPred )
+import Common.NameSupply
 import TCM
 import Common.Debug
 

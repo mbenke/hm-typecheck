@@ -1,9 +1,9 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell #-}
 import Syntax
-import qualified ISyntax as I
-import Types
+import qualified Language.Fun.ISyntax as I
+import Language.Fun.Types
 import Desugar
-import Checker(tiDecl, tiProg, tiExpr, generalize)
+import Language.Fun.Checker(tiDecl, tiProg, tiExpr, generalize)
 import TCM
 import Control.Exception
 import Control.Monad

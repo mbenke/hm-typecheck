@@ -1,4 +1,4 @@
-module NameSupply(NS, namePool, split, deplete) where
+module Common.NameSupply(NS, namePool, split, deplete) where
 
 addNumbers :: [String] -> [Integer] -> [String]
 addNumbers names numbers = do

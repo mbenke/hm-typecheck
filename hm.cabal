@@ -28,14 +28,21 @@ library
     exposed-modules:
       Common.Debug
       Common.LightYear
+      Common.NameSupply
       Common.Pretty
       Common.RIO
       Language.Core
       Language.Core.Parser
-      ISyntax Checker Constraints Types NameSupply Prims TCM
-      Specialise
+      Language.Fun.ISyntax
+      Language.Fun.Types
+      Language.Fun.Constraints
+      Language.Fun.Checker
+      Language.Fun.Prims
+      Language.Fun.Specialise
       Language.Yul
       Language.Yul.Parser
+      TCM
+
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
     build-depends:    base ^>=4.16.4.0,
