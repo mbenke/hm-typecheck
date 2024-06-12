@@ -17,6 +17,8 @@ pattern YReturns :: a -> Maybe a
 pattern YReturns a = Just a
 pattern YulAlloc :: Name -> YulStatement
 pattern YulAlloc name = YulLet [name] Nothing
+pattern YulAssign1 :: Name -> YulExpression -> YulStatement
+pattern YulAssign1 name expr = YulAssign [name] expr
 
 data YulStatement
   = YulBlock [YulStatement]
@@ -94,6 +96,7 @@ instance Pretty YulExpression where
   pretty (YulLiteral lit) = pretty lit
 
 instance Pretty YulLiteral where
+  pretty :: YulLiteral -> Doc
   pretty (YulNumber n) = integer n
   pretty (YulString s) = doubleQuotes (text s)
   pretty YulTrue = text "true"
@@ -103,7 +106,7 @@ instance Pretty YulLiteral where
    assumes result is in a variable named "_result"
 -}
 wrapInSolFunction :: Pretty a => Name -> a -> Doc
-wrapInSolFunction name yul = text "function" <+> text name <+> prettyargs <+> text " public pure returns (uint256 _mainresult)" <+> lbrace
+wrapInSolFunction name yul = text "function" <+> text name <+> prettyargs <+> text " public pure returns (uint256 _wrapresult)" <+> lbrace
   $$ nest 2 assembly
   $$ rbrace
   where
@@ -114,6 +117,7 @@ wrapInSolFunction name yul = text "function" <+> text name <+> prettyargs <+> te
 
 wrapInContract :: Name -> Name -> Doc -> Doc
 wrapInContract name entry body = empty
+  $$ text "// SPDX-License-Identifier: UNLICENSED"
   $$ text "pragma solidity ^0.8.23;"
   $$ text "import {console,Script} from \"lib/stdlib.sol\";"
   $$ text "contract" <+> text name <+> text "is Script"<+> lbrace

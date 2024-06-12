@@ -31,7 +31,7 @@ genExpr (EInl e) = do
 genExpr (EInr e) = do
     (stmts, loc) <- genExpr e
     pure (stmts, LocSum (LocBool True) (LocUndefined) loc) -- FIXME tag
-genExpr EUnit = pure ([], LocUnit)    
+genExpr EUnit = pure ([], LocUnit)
 genExpr (ECall name args) = do
     (argCodes, argLocs) <- unzip <$> mapM genExpr args
     let argsCode = concat argCodes
@@ -209,10 +209,24 @@ genStmts stmts = concat <$> mapM genStmtWithComment stmts
 
 translateCore :: Core -> TM Yul
 translateCore (Core stmts) = do
-    -- assuming the result goes into `_mainresult`
+    -- assuming the result goes into `_wrapresult`
     n <- freshId
-    let prolog = [YulAlloc (stkLoc n)]
+    let result = stkLoc n
+    let prolog = [YulAlloc result]
     insertVar "_result" (LocStack n)
-    mainBody <- genStmts stmts
-    let epilog = [YulAssign ["_mainresult"] (YulIdentifier (stkLoc n))]
-    return $ Yul (prolog ++ mainBody ++ epilog )
+    payload <- genStmts stmts
+    let hasMain = any isMain stmts
+    if hasMain
+        then writeln "found main"
+        else writeln "no main"
+    let resultExp = if hasMain
+        then YulCall "main" []
+        else YulIdentifier result
+    let epilog = [YulAssign1 "_wrapresult" resultExp]
+    return $ Yul (prolog ++ payload ++ epilog )
+
+isMain :: Stmt -> Bool
+isMain (SFunction "main" _ _ _) = True
+isMain _ = False
+-- TODO: analyse main type
+-- e.g. mainType :: Stmt -> Maybe Type

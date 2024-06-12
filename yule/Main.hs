@@ -49,8 +49,8 @@ main = do
         putStrLn (render (nest 2 (pretty core)))
         putStrLn "*/"
     generatedYul <- runTM (translateCore core)
-    let fooFun = wrapInSolFunction "main" generatedYul
-    let doc = wrapInContract (contract options) "main()" fooFun
+    let fooFun = wrapInSolFunction "wrapper" generatedYul
+    let doc = wrapInContract (contract options) "wrapper()" fooFun
     -- putStrLn (render doc)
     putStrLn ("writing output to " ++ output options)
     writeFile (output options) (render doc)
