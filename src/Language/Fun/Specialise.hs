@@ -115,7 +115,8 @@ specialiseCon f t = do
 
 specName :: Name -> [Type] -> Name
 specName n [] = n
-specName n ts = n ++ "<" ++ intercalate "," (map str ts) ++ ">"
+specName n ts = n ++ "$" ++ intercalate "_" (map str ts)
+-- specName n ts = n ++ "<" ++ intercalate "," (map str ts) ++ ">"
 -- alternatively we could use similar Unicode letter characters:
 -- Canadian Syllabics Pa (U+1438), Po (U+1433), and Final Short Horizontal Stroke (U+1428)
 -- specName n ts = n ++ "\x1438" ++ intercalate "\x1428" (map str ts) ++ "\x1433"

@@ -37,6 +37,7 @@ library
       Language.Fun.Types
       Language.Fun.Constraints
       Language.Fun.Checker
+      Language.Fun.EmitCore
       Language.Fun.Prims
       Language.Fun.Specialise
       Language.Yul

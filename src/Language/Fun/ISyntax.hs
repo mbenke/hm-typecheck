@@ -9,6 +9,7 @@ data Expr
     = ELam [Arg] Expr        -- function \args -> expr
     | ELet Name Expr Expr    -- local definition: let name = expr1 in expr2
     | EApp Expr Expr         -- function call: f(arg)
+    | EVapp Expr [Expr]      -- vector application: f(args)
     | EVar Name              -- variable
     | ECon Name              -- value constructor
     | EInt Integer           -- integer literal

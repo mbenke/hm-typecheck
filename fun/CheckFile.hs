@@ -12,8 +12,11 @@ import PrintFun ( printTree)
 import Desugar
 import Language.Fun.ISyntax
 import Language.Fun.Checker
+import Language.Fun.EmitCore
 import TCM
 import Language.Fun.Specialise
+import Language.Core(Core)
+import Language.Core qualified as Core
 
 type Err        = Either String
 type ParseFun a = [Token] -> Err a
@@ -68,12 +71,15 @@ checkProg = checkProg' False
 vcheckProg :: C.Prog -> IO ()
 vcheckProg = checkProg' True
 
+processProg :: Prog -> TCM (Maybe Core)
 processProg prog@(Prog decls) = do
   tiProg prog
   tld <- buildTLD decls
   case Map.lookup entrypoint tld of
-    Nothing -> return ()
-    Just def -> withLogging $ specialiseEntry entrypoint
+    Nothing -> return Nothing
+    Just def -> do
+      withLogging $ specialiseEntry entrypoint
+      Just <$> emitCore
   where
     entrypoint = "main"
 
@@ -82,7 +88,7 @@ checkProg' verbose prog = do
   let (res, state) = runTCM (processProg (desugar prog))
   case res of
     Left err -> putStrLn "Error: " >> putStrLn err
-    Right t -> do
+    Right mcore -> do
         putStrLn(printTree prog)
         let env = tcsEnv state
         let withPrims = False
@@ -92,6 +98,12 @@ checkProg' verbose prog = do
         writeln (showREnv(tcsREnv state))
         writeln "------------\nSpecialised:\n------------"
         writeln (showSpecTable(tcsSpec state))
+        case mcore of
+          Nothing -> return ()
+          Just core -> do
+            writeln "------------\nCore:\n------------"
+            writeln (show core)
+            writeFile "output.core" (show core)
   when verbose $ do
              let history = reverse (tcsLog state)
              writeln "------------\nHistory:\n------------"

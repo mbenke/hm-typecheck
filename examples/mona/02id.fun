@@ -1,2 +1,2 @@
 id x = x;
-main = id id 42;
+main = id 42;

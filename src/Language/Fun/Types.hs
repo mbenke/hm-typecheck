@@ -21,6 +21,8 @@ data Type = TCon String [Type] {- | Type :-> Type -} | TVar Tyvar
 
 
 pattern TInt = TCon "Int" []
+pattern TBool = TCon "Bool" []
+pattern TUnit = TCon "Unit" []
 pattern (:->) a b = TCon "(->)" [a,b]
 int :: Type
 int = TInt
@@ -76,6 +78,10 @@ forAll s t = Forall (words s) ([] :=> t)
 argTypes :: Type -> [Type]
 argTypes (a :-> b) = a : argTypes b
 argTypes _ = []
+
+typeOfScheme :: Scheme -> Maybe Type
+typeOfScheme (Forall [] ([] :=> t)) = Just t
+typeOfScheme _ = Nothing
 
 -- deriving instance Show Scheme
 

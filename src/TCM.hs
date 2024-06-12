@@ -20,6 +20,7 @@ type Env = Table Scheme            -- Environment maps names to type schemes
 
 type TypeTable = Table TypeInfo    -- TypeTable maps type constructor names to
 type TypeInfo = (Arity, [Name])    -- arity and constructor names
+type ConInfo = (Name, Scheme)      -- constructor name and type scheme
 
 type ClassTable = Table ClassInfo
 type ClassInfo = (Arity, [Method]) -- number of weak parameters and method names
@@ -175,6 +176,7 @@ showSmallEnv env = intercalate ", " [showEntry (n,s) | (n,s) <- env, not (nameIs
 
 maybeAskType :: Name -> TCM (Maybe Scheme)
 maybeAskType n = gets (Map.lookup n . tcsEnv)
+
 askType :: Name -> TCM Scheme
 askType n = do
   result <- maybeAskType n
@@ -276,6 +278,22 @@ lookupSpec name typ = do
       | typ == t = Just (n, t, args, body)
       | otherwise = find typ specs
 
+getTypeInfo :: Name -> TCM TypeInfo
+getTypeInfo name = do
+  mti <- gets (Map.lookup name . tcsTT)
+  case mti of
+    Just ti -> return ti
+    Nothing -> throwError $ "Unknown type constructor: " ++ name
+
+getConstructorsFor :: Name -> TCM [ConInfo]
+getConstructorsFor name = do
+  (arity, cons::[Name]) <- getTypeInfo name
+  forM cons getConInfo
+
+getConInfo :: Name -> TCM ConInfo
+getConInfo name = do
+  s <- askType name
+  return (name, s)
 
 addSpecialisation :: Name -> Type -> [Arg] -> Expr -> TCM ()
 addSpecialisation name typ args body = do

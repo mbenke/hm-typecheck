@@ -372,11 +372,6 @@ attachTypes = zipWith typedArg where
     typedArg (TArg name _) t = TArg name t
 
 
-typeOfScheme :: Scheme -> Maybe Type
-typeOfScheme (Forall [] ([] :=> t)) = Just t
-typeOfScheme _ = Nothing
-
-
 ---- Classes
 
 -- Administraive Normal Form of an MPTC instance:

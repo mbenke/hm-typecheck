@@ -46,7 +46,8 @@ instance Show Stmt where show = render . pretty
 
 data Alt = Alt Name Stmt
 
-data Core = Core [Stmt]
+newtype Core = Core [Stmt]
+instance Show Core where show = render . pretty
 
 instance Pretty Type where
     pretty TInt = text "int"
