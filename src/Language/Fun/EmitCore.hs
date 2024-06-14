@@ -63,11 +63,22 @@ translateExp e@(Fun.EApp f a) = do
         Fun.EVar f -> translateExp (Fun.EVapp g as)
         Fun.ECon c -> translateConApp c as
         _ -> error ("translateExp: not implemented for "++str e)
-translateExp (Fun.ECase p [Fun.CaseAlt "Pair" args body]) = do
-    -- FIXME: generalise
-    (pcode, pair) <- translateExp p
-    let pvars = translatePatArgs pair args
-    -- let extension = extendVSubst [(a, Core.EFst pair), (b, Core.ESnd pair)]
+
+{-
+General approach to case expression translation:
+1. find scrutinee type
+2. fetch constructor list
+3. build constructor map for this type containing con number (m/n),  case alt
+4. Check for catch-all case alt
+5. Check if match is exhaustive, if not add error branches
+6. Translate case alts (in constructor order) to inl/inr matches
+
+Start with special case for product types - just transform to projections
+-}
+
+translateExp (Fun.ECase p [Fun.CaseAlt con args body]) = do
+    (pcode, pval) <- translateExp p
+    let pvars = translatePatArgs pval args
     (bcode, bval) <- local (extendECEnv pvars) $ translateExp body
     pure (pcode ++ bcode, bval)
 
@@ -107,8 +118,11 @@ translateType (Fun.TCon name tas) = translateTCon name tas
 -- type Pair a b = Pair a b; Pair -> 0/0
 
 translateTCon :: Name -> [Fun.Type] -> Core.Type
--- hack, FIXME
-translateTCon "Pair" [a, b] = Core.TPair (translateType a) (translateType b)
+translateTCon con tas = translateProductType tas
+
+translateProductType :: [Fun.Type] -> Core.Type
+translateProductType [] = Core.TUnit
+translateProductType ts = foldr1 Core.TPair (map translateType ts)
 
 translateProduct :: [Fun.Expr] -> Translation Core.Expr
 translateProduct [e] = translateExp e
