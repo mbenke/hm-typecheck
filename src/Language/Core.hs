@@ -63,8 +63,8 @@ instance Pretty Expr where
     pretty EUnit = text "()"
     pretty (EVar x) = text x
     pretty (EPair e1 e2) = parens (pretty e1 >< comma <+> pretty e2)
-    pretty (EFst e) = pretty e  >< text ".fst"
-    pretty (ESnd e) = pretty e  >< text ".snd"
+    pretty (EFst e) = text "fst" >< parens (pretty e)
+    pretty (ESnd e) = text "snd" >< parens (pretty e)
     pretty (EInl e) = text "inl" >< parens (pretty e)
     pretty (EInr e) = text "inr" >< parens (pretty e)
     pretty (ECall f es) = text f >< parens(hsep (punctuate comma (map pretty es)))

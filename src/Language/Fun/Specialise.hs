@@ -100,9 +100,27 @@ specialiseExp (EBlock stmts) etyp = withLocalEnv do
   stmts' <- mapM (`specialiseStmt` etyp) stmts
   return (EBlock stmts')
 
+specialiseExp (ECase e alts) etyp = do
+  (_ps, styp) <- tiExpr e `wrapError` e
+  e' <- specialiseExp e styp
+  alts' <- mapM (\alt -> specialiseAlt alt styp etyp) alts
+  return (ECase e' alts')
 -- this should never happen, but just in case:
 specialiseExp e etyp = throwError("FAILED to specialise "++str e)
 
+specialiseAlt :: CaseAlt -> Type -> Type -> TCM CaseAlt
+-- FIXME: add pattern vars
+specialiseAlt (CaseAlt con as e) styp etyp = withLocalEnv do
+  warn ["> specAlt ", con, str as, " : ", str etyp]
+  conscheme <- askType con
+  let (Forall _ (_ :=> contyp)) = conscheme
+  phi <- mgu (resultType contyp as) styp
+  let contyp' = apply phi contyp
+  let ats = argTypes contyp'
+  let as' = attachTypes as ats
+  e' <- specialiseExp e etyp
+  warn ["< specAlt ", str (CaseAlt con as' e')]
+  return (CaseAlt con as' e')
 
 specialiseCon :: Name -> Type -> TCM Expr
 specialiseCon f t = do
