@@ -14,8 +14,12 @@ type VSubst = Map.Map Name Core.Expr
 emptyVSubst :: VSubst
 emptyVSubst = Map.empty
 
-extendVSubst :: VSubst -> VSubst -> VSubst
-extendVSubst = flip  Map.union
+data  ECEnv = ECEnv { ecSubst :: VSubst, ecTT :: TypeTable}
+
+extendECEnv :: VSubst -> ECEnv -> ECEnv
+extendECEnv subst env = env { ecSubst = ecSubst env <> subst}
+
+-- readConstructorPosition :: Name -> (Int, Int)
 
 emitCore :: TCM Core
 emitCore = do
@@ -33,34 +37,23 @@ emitSpec origName (name, typ, args, body) = do
     warn ["> emitSpec ", name, " : ", str typ]
     warn ["! emitSpec: allArgs=", str allArgs]
     let coreArgs = map translateArg allArgs
-    let coreBody = translateBody lambody
+    coreBody <- translateBody lambody
     return (Core.SFunction name coreArgs Core.TInt coreBody)
 
-stripLambda :: Fun.Expr -> (Fun.Expr, [Fun.Arg])
-stripLambda (Fun.ELam args body) = let (b, as) = stripLambda body in (b, args ++ as)
-stripLambda e = (e, [])
 
-translateArg :: Fun.Arg -> Core.Arg
-translateArg (Fun.TArg n t) = Core.TArg n (translateType t)
-translateArg (Fun.UArg n) = error("translateArg: UArg "++n)
+type Translation a = ECEnv -> ([Core.Stmt], a)
 
-translateType :: Fun.Type -> Core.Type
-translateType Fun.TInt = Core.TInt
-translateType Fun.TBool = Core.TBool
-translateType Fun.TUnit = Core.TUnit
-translateType (Fun.TCon name tas) = translateTCon name tas
-
-type Translation a = VSubst -> ([Core.Stmt], a)
-
-translateBody :: Fun.Expr -> [Core.Stmt]
+translateBody :: Fun.Expr -> TCM [Core.Stmt]
 translateBody exp = do
-    let (code, result) = translateExp exp emptyVSubst
-    code ++ [Core.SReturn result]
+    typeTable <- gets tcsTT
+    let env = ECEnv emptyVSubst typeTable
+    let (code, result) = translateExp exp env
+    return (code ++ [Core.SReturn result])
 
 translateExp :: Fun.Expr -> Translation Core.Expr
 translateExp (Fun.EInt n) = pure ([], Core.EInt (fromInteger n))
 translateExp (Fun.EVar n) = do
-    replace <- reader (Map.lookup n)
+    replace <- reader (Map.lookup n . ecSubst)
     case replace of
         Just e -> pure ([], e)
         Nothing -> pure ([], Core.EVar n)
@@ -75,7 +68,7 @@ translateExp (Fun.ECase p [Fun.CaseAlt "Pair" args body]) = do
     (pcode, pair) <- translateExp p
     let pvars = translatePatArgs pair args
     -- let extension = extendVSubst [(a, Core.EFst pair), (b, Core.ESnd pair)]
-    (bcode, bval) <- local (extendVSubst pvars) $ translateExp body
+    (bcode, bval) <- local (extendECEnv pvars) $ translateExp body
     pure (pcode ++ bcode, bval)
 
 translateExp (Fun.EVapp (Fun.EVar f) as) = do
@@ -91,6 +84,20 @@ unwindApp :: Fun.Expr -> (Fun.Expr, [Fun.Expr])
 unwindApp e = go e [] where
     go (Fun.EApp f a) as = go f (a:as)
     go f as = (f, as)
+
+stripLambda :: Fun.Expr -> (Fun.Expr, [Fun.Arg])
+stripLambda (Fun.ELam args body) = let (b, as) = stripLambda body in (b, args ++ as)
+stripLambda e = (e, [])
+
+translateArg :: Fun.Arg -> Core.Arg
+translateArg (Fun.TArg n t) = Core.TArg n (translateType t)
+translateArg (Fun.UArg n) = error("translateArg: UArg "++n)
+
+translateType :: Fun.Type -> Core.Type
+translateType Fun.TInt = Core.TInt
+translateType Fun.TBool = Core.TBool
+translateType Fun.TUnit = Core.TUnit
+translateType (Fun.TCon name tas) = translateTCon name tas
 
 -- translate (monomorphic) datatypes to sums of products
 -- constructors are translated to inr/inl chains
