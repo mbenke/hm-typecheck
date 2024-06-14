@@ -1,4 +1,4 @@
-module Language.Yul.Parser(parseYul) where
+module Language.Yul.Parser(parseYul, yulBlock) where
 {-
 import Text.Megaparsec
 import Text.Megaparsec.Char
@@ -47,8 +47,8 @@ pKeyword w = lexeme (string w <* notFollowedBy identChar)
 yulExpression :: Parser YulExpression
 yulExpression = choice
     [ YulLiteral <$> yulLiteral
+    , try (YulCall <$> identifier <*> parens (commaSep yulExpression))
     , YulIdentifier <$> identifier
-    , YulCall <$> identifier <*> parens (commaSep yulExpression)
     ]
 
 yulLiteral :: Parser YulLiteral

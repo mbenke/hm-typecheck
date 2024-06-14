@@ -1,9 +1,15 @@
 module Language.Core.Parser where
 import Language.Core
+    ( Core(..),
+      Alt(..),
+      Arg(..),
+      Stmt(SExpr, SAlloc, SReturn, SBlock, SCase, SFunction, SAssign, SAssembly),
+      Expr(..),
+      Type(TSum, TInt, TBool, TUnit, TPair) )
 import Common.LightYear
 import Text.Megaparsec.Char.Lexer qualified as L
 import Control.Monad.Combinators.Expr
-import Language.Yul.Parser(parseYul)
+import Language.Yul.Parser(parseYul, yulBlock)
 
 parseCore :: String -> Core
 parseCore = runMyParser coreProgram
@@ -93,6 +99,7 @@ coreStmt = choice
     , SCase <$> (pKeyword "match" *> coreExpr <* pKeyword "with") <*> (symbol "{" *> many coreAlt <* symbol "}")
     , SFunction <$> (pKeyword "function" *> identifier) <*> (parens (commaSep coreArg)) <*> (symbol "->" *> coreType) 
                 <*> (symbol "{" *> many coreStmt <* symbol "}")
+    , SAssembly <$> (pKeyword "assembly" *> yulBlock)
     , try (SAssign <$> (coreExpr <* symbol ":=") <*> coreExpr)
     , SExpr <$> coreExpr
     ]
