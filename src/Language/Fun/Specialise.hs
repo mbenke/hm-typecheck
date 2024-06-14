@@ -109,7 +109,6 @@ specialiseExp (ECase e alts) etyp = do
 specialiseExp e etyp = throwError("FAILED to specialise "++str e)
 
 specialiseAlt :: CaseAlt -> Type -> Type -> TCM CaseAlt
--- FIXME: add pattern vars
 specialiseAlt (CaseAlt con as e) styp etyp = withLocalEnv do
   warn ["> specAlt ", con, str as, " : ", str etyp]
   conscheme <- askType con
@@ -118,6 +117,7 @@ specialiseAlt (CaseAlt con as e) styp etyp = withLocalEnv do
   let contyp' = apply phi contyp
   let ats = argTypes contyp'
   let as' = attachTypes as ats
+  addArgs as'
   e' <- specialiseExp e etyp
   warn ["< specAlt ", str (CaseAlt con as' e')]
   return (CaseAlt con as' e')
