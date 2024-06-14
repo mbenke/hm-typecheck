@@ -77,18 +77,17 @@ instance Pretty Stmt where
     pretty (SReturn e) = text "return" <+> pretty e
     pretty (SComment c) = text "//" <+> text c
     pretty (SBlock stmts) = lbrace $$ nest 4 (vcat (map pretty stmts)) $$ rbrace
-    pretty (SCase e alts) =
+    pretty (SCase e [left, right]) =
         text "match" <+> pretty e <+> text "with" $$ lbrace
-           $$ nest 2 (vcat (map pretty alts))  $$ rbrace
+           $$ nest 2 (vcat [prettyAlt "inl" left, prettyAlt "inr" right]) $$ rbrace 
+        where
+            prettyAlt tag (Alt n s) = text tag <+> text n <+> text "=>" <+> pretty s
     pretty (SFunction f args ret stmts) =
         text "function" <+> text f <+> parens (hsep (punctuate comma (map pretty args))) <+> text "->" <+> pretty ret <+> lbrace
            $$ nest 2 (vcat (map pretty stmts))  $$ rbrace
 
 instance Pretty Arg where
     pretty (TArg n t) = text n <+> text ":" <+> pretty t
-
-instance Pretty Alt where
-    pretty (Alt n s) = text n <+> text "=>" <+> pretty s
 
 instance Pretty Core where
     pretty (Core stmts) = vcat (map pretty stmts)
