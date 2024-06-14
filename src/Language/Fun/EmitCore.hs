@@ -3,10 +3,19 @@ import Language.Core(Core(..))
 import Language.Core qualified as Core
 import TCM
 import Data.Map qualified as Map
+import Control.Monad.Reader.Class
 import Control.Monad.State(gets)
 import Language.Fun.ISyntax(Name, ToStr(..))
 import Language.Fun.ISyntax qualified as Fun
 import Language.Fun.Types qualified as Fun
+
+
+type VSubst = Map.Map Name Core.Expr
+emptyVSubst :: VSubst
+emptyVSubst = Map.empty
+
+extendVSubst :: [(Name, Core.Expr)] -> VSubst -> VSubst
+extendVSubst pairs subst = subst `Map.union` Map.fromList pairs
 
 emitCore :: TCM Core
 emitCore = do
@@ -15,7 +24,7 @@ emitCore = do
     pure (Core (concat cores))
 
 emitSpecs :: (Name, [Specialisation]) -> TCM [Core.Stmt]
-emitSpecs (name, specs) = mapM (emitSpec name) specs 
+emitSpecs (name, specs) = mapM (emitSpec name) specs
 
 emitSpec :: Name -> Specialisation -> TCM Core.Stmt
 emitSpec origName (name, typ, args, body) = do
@@ -24,7 +33,7 @@ emitSpec origName (name, typ, args, body) = do
     warn ["> emitSpec ", name, " : ", str typ]
     warn ["! emitSpec: allArgs=", str allArgs]
     let coreArgs = map translateArg allArgs
-    let (coreBody, ()) = translateBody lambody
+    let coreBody = translateBody lambody
     return (Core.SFunction name coreArgs Core.TInt coreBody)
 
 stripLambda :: Fun.Expr -> (Fun.Expr, [Fun.Arg])
@@ -41,39 +50,38 @@ translateType Fun.TBool = Core.TBool
 translateType Fun.TUnit = Core.TUnit
 translateType (Fun.TCon name tas) = translateTCon name tas
 
-type Translation a = ([Core.Stmt], a)
+type Translation a = VSubst -> ([Core.Stmt], a)
 
-translateBody :: Fun.Expr -> Translation ()
+translateBody :: Fun.Expr -> [Core.Stmt]
 translateBody exp = do
-    let (code, result) = translateExp exp
-    (code ++ [Core.SReturn result], ())
-    
+    let (code, result) = translateExp exp emptyVSubst
+    code ++ [Core.SReturn result]
 
-
-translateExp :: Fun.Expr -> ([Core.Stmt], Core.Expr)
-translateExp (Fun.EInt n) = ([], Core.EInt (fromInteger n))
-translateExp (Fun.EVar n) = ([], Core.EVar n)
+translateExp :: Fun.Expr -> Translation Core.Expr
+translateExp (Fun.EInt n) = pure ([], Core.EInt (fromInteger n))
+translateExp (Fun.EVar n) = do
+    replace <- reader (Map.lookup n)
+    case replace of
+        Just e -> pure ([], e)
+        Nothing -> pure ([], Core.EVar n)
 translateExp e@(Fun.EApp f a) = do
     let (g, as) = unwindApp e
     case g of
         Fun.EVar f -> translateExp (Fun.EVapp g as)
         Fun.ECon c -> translateConApp c as
         _ -> error ("translateExp: not implemented for "++str e)
-translateExp (Fun.ECase p [Fun.CaseAlt "Pair" [Fun.TArg a aType, Fun.TArg b bType] body]) = do 
+translateExp (Fun.ECase p [Fun.CaseAlt "Pair" [Fun.TArg a aType, Fun.TArg b bType] body]) = do
     -- FIXME: generalise
-    let (pcode, pair) = translateExp p
-    let acType = translateType aType
-    let bcType = translateType bType
-    let project = declare a acType Core.EFst pair ++ declare b bcType Core.ESnd pair
-    let (bCode, bResult) = translateExp body
-    ([Core.SBlock $ project ++ bCode], bResult) -- FIXME result is local?
-    where
-        declare :: Name -> Core.Type -> (Core.Expr -> Core.Expr) -> Core.Expr -> [Core.Stmt]
-        declare n t op pair = [Core.SAlloc n t, Core.SAssign (Core.EVar n) (op pair)]
-translateExp (Fun.EVapp (Fun.EVar f) as) = (code, call) where
-    call = Core.ECall f coreArgs
-    (codes, coreArgs) = unzip (map translateExp as)
-    code = concat codes
+    (pcode, pair) <- translateExp p
+    let extension = extendVSubst [(a, Core.EFst pair), (b, Core.ESnd pair)]
+    (bcode, bval) <- local extension $ translateExp body
+    pure (pcode ++ bcode, bval)
+
+translateExp (Fun.EVapp (Fun.EVar f) as) = \vsubst -> do
+    let (codes, coreArgs) = unzip (map (flip translateExp vsubst) as)
+    let call = Core.ECall f coreArgs
+    let code = concat codes
+    (code, call)
 translateExp exp = error ("translateExp: not implemented for "++str exp)
 
 unwindApp :: Fun.Expr -> (Fun.Expr, [Fun.Expr])
@@ -95,11 +103,11 @@ translateTCon "Pair" [a, b] = Core.TPair (translateType a) (translateType b)
 translateProduct :: [Fun.Expr] -> Translation Core.Expr
 translateProduct [e] = translateExp e
 translateProduct (e:es) = do
-    let (code, coreE) = translateExp e
-    let (codes, coreEs) = translateProduct es
-    (code ++ codes, Core.EPair coreE coreEs)
+    (code, coreE) <- translateExp e
+    (codes, coreEs) <- translateProduct es
+    pure (code ++ codes, Core.EPair coreE coreEs)
 
 translateConApp :: Name -> [Fun.Expr] -> Translation Core.Expr
 translateConApp c es = do
-    let (code, coreEs) = translateProduct es
-    (code, coreEs)
+    (code, coreEs) <- translateProduct es
+    pure (code, coreEs)
