@@ -14,8 +14,8 @@ type VSubst = Map.Map Name Core.Expr
 emptyVSubst :: VSubst
 emptyVSubst = Map.empty
 
-extendVSubst :: [(Name, Core.Expr)] -> VSubst -> VSubst
-extendVSubst pairs subst = subst `Map.union` Map.fromList pairs
+extendVSubst :: VSubst -> VSubst -> VSubst
+extendVSubst = flip  Map.union
 
 emitCore :: TCM Core
 emitCore = do
@@ -70,18 +70,21 @@ translateExp e@(Fun.EApp f a) = do
         Fun.EVar f -> translateExp (Fun.EVapp g as)
         Fun.ECon c -> translateConApp c as
         _ -> error ("translateExp: not implemented for "++str e)
-translateExp (Fun.ECase p [Fun.CaseAlt "Pair" [Fun.TArg a aType, Fun.TArg b bType] body]) = do
+translateExp (Fun.ECase p [Fun.CaseAlt "Pair" args body]) = do
     -- FIXME: generalise
     (pcode, pair) <- translateExp p
-    let extension = extendVSubst [(a, Core.EFst pair), (b, Core.ESnd pair)]
-    (bcode, bval) <- local extension $ translateExp body
+    let pvars = translatePatArgs pair args
+    -- let extension = extendVSubst [(a, Core.EFst pair), (b, Core.ESnd pair)]
+    (bcode, bval) <- local (extendVSubst pvars) $ translateExp body
     pure (pcode ++ bcode, bval)
 
-translateExp (Fun.EVapp (Fun.EVar f) as) = \vsubst -> do
-    let (codes, coreArgs) = unzip (map (flip translateExp vsubst) as)
+translateExp (Fun.EVapp (Fun.EVar f) as) = do
+    targs <- mapM translateExp as
+    let (codes, coreArgs) = unzip targs
     let call = Core.ECall f coreArgs
     let code = concat codes
-    (code, call)
+    pure (code, call)
+
 translateExp exp = error ("translateExp: not implemented for "++str exp)
 
 unwindApp :: Fun.Expr -> (Fun.Expr, [Fun.Expr])
@@ -111,3 +114,15 @@ translateConApp :: Name -> [Fun.Expr] -> Translation Core.Expr
 translateConApp c es = do
     (code, coreEs) <- translateProduct es
     pure (code, coreEs)
+
+
+-- translate pattern arguments to a substitution, e.g.
+-- p@(Just x) ~> [p->p]
+-- p@(Pair x y) ~> [x -> fst p, y -> snd p]
+-- p@(Triple x y z) ~> [x -> fst p, y -> fst (snd p), z -> snd (snd p)]
+translatePatArgs :: Core.Expr -> [Fun.Arg] -> VSubst
+translatePatArgs p = Map.fromList . go p where
+    go _ [] = []
+    go p [a] = [(Fun.argName a, p)]
+    go p (a:as) = let (p1, p2) = (Core.EFst p, Core.ESnd p) in
+        (Fun.argName a, p1) : go p2 as
