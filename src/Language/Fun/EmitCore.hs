@@ -64,24 +64,6 @@ translateExp e@(Fun.EApp f a) = do
         Fun.ECon c -> translateConApp c as
         _ -> error ("translateExp: not implemented for "++str e)
 
-{-
-General approach to case expression translation:
-1. find scrutinee type
-2. fetch constructor list
-3. build constructor map for this type containing con number (m/n),  case alt
-4. Check for catch-all case alt
-5. Check if match is exhaustive, if not add error branches
-6. Translate case alts (in constructor order) to inl/inr matches
-
-Start with special case for product types - just transform to projections
--}
-
-translateExp (Fun.ECase p [Fun.CaseAlt con args body]) = do
-    (pcode, pval) <- translateExp p
-    let pvars = translatePatArgs pval args
-    (bcode, bval) <- local (extendECEnv pvars) $ translateExp body
-    pure (pcode ++ bcode, bval)
-
 translateExp (Fun.EVapp (Fun.EVar f) as) = do
     targs <- mapM translateExp as
     let (codes, coreArgs) = unzip targs
@@ -89,7 +71,31 @@ translateExp (Fun.EVapp (Fun.EVar f) as) = do
     let code = concat codes
     pure (code, call)
 
+{-
+General approach to case expression translation:
+1. find scrutinee type
+2. fetch constructor list
+3. Check for catch-all case alt (opt)
+4. Build alternative map, initially containing error or catch-all
+5. Translate case alts and insert them into the alt map
+6. Build nested match statement from the map
+
+Start with special case for product types - just transform to projections
+-}
+
+
+translateExp (Fun.ECase p [alt]) = do
+    (pcode, pval) <- translateExp p
+    (bcode, bval) <- translateAlt pval alt
+    pure (pcode ++ bcode, bval)
+
+
 translateExp exp = error ("translateExp: not implemented for "++str exp)
+
+translateAlt :: Core.Expr -> Fun.CaseAlt -> Translation Core.Expr
+translateAlt pval (Fun.CaseAlt con args body) = do
+    let pvars = translatePatArgs pval args
+    local (extendECEnv pvars) $ translateExp body
 
 unwindApp :: Fun.Expr -> (Fun.Expr, [Fun.Expr])
 unwindApp e = go e [] where
