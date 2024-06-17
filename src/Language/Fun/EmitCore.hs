@@ -67,8 +67,8 @@ translateExp e@(Fun.EApp f a) = do
     case g of
         Fun.EVar f -> translateExp (Fun.EVapp g as)
         Fun.ECon c -> translateConApp c as
-        _ -> error ("translateExp: not implemented for "++str e)
-
+        _ -> error ("translateExp/EApp: not implemented for "++str e)
+translateExp (Fun.ECon c) = translateConApp c []
 translateExp (Fun.EVapp (Fun.EVar f) as) = do
     targs <- mapM translateExp as
     let (codes, coreArgs) = unzip targs
@@ -161,6 +161,7 @@ translateProduct (e:es) = do
     (code, coreE) <- translateExp e
     (codes, coreEs) <- translateProduct es
     pure (code ++ codes, Core.EPair coreE coreEs)
+translateProduct [] = pure ([], Core.EUnit)
 
 translateConApp :: Name -> [Fun.Expr] -> Translation Core.Expr
 translateConApp c es = do
