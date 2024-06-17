@@ -3,6 +3,7 @@ import Language.Core(Core(..))
 import Language.Core qualified as Core
 import TCM
 import Data.Map qualified as Map
+import Control.Monad(forM)
 import Control.Monad.Reader.Class
 import Control.Monad.State(gets)
 import Language.Fun.ISyntax(Name, ToStr(..), Expr(..))
@@ -19,7 +20,10 @@ data  ECEnv = ECEnv { ecSubst :: VSubst, ecTT :: TypeTable}
 extendECEnv :: VSubst -> ECEnv -> ECEnv
 extendECEnv subst env = env { ecSubst = ecSubst env <> subst}
 
--- readConstructorPosition :: Name -> (Int, Int)
+readConstructors :: Name -> ECEnv -> [Name]
+readConstructors name env = case Map.lookup name (ecTT env) of
+    Just (arity, cs) -> cs
+    _ -> error ("readConstructors: unknown type "++str name)
 
 emitCore :: TCM Core
 emitCore = do
@@ -85,10 +89,28 @@ Start with special case for product types - just transform to projections
 -}
 
 
-translateExp (Fun.ECase (ETyped p typ) [alt]) = do
+
+translateExp (ETyped (Fun.ECase (ETyped p styp) [alt]) rtyp) = do
+    let coreResultType = translateType rtyp
+    let allocResult = [Core.SAlloc "_caseresult" coreResultType]
     (pcode, pval) <- translateExp p
     (bcode, bval) <- translateAlt pval alt
-    pure (pcode ++ bcode, bval)
+    pure (allocResult ++ pcode ++ bcode, bval)
+
+translateExp (ETyped (Fun.ECase (ETyped p typ) alts) rtyp) = do
+    let coreResultType = translateType rtyp
+    let allocResult = [Core.SAlloc "_caseresult" coreResultType]
+    (pcode, pval) <- translateExp p
+    let typename = case typ of
+            Fun.TCon name _ -> name
+            _ -> error ("translateExp: case with non-constructor type "++str typ)
+    constructors <- readConstructors typename
+    let noMatch c = [Core.SRevert ("no match for: "++c)]
+    let defaultAltMap = Map.fromList [(c, noMatch c) | c <- constructors]
+    branches <- forM alts $ \alt@(Fun.CaseAlt con args body) -> do
+        (bcode, bval) <- translateAlt pval alt
+        pure (con, bcode, bval)
+    error "translateExp: unfinished"
 
 translateExp (Fun.ECase  p [alt]) = error "translateExp: case with untyped scrutinee"
 translateExp exp = error ("translateExp: not implemented for "++str exp)
@@ -96,7 +118,9 @@ translateExp exp = error ("translateExp: not implemented for "++str exp)
 translateAlt :: Core.Expr -> Fun.CaseAlt -> Translation Core.Expr
 translateAlt pval (Fun.CaseAlt con args body) = do
     let pvars = translatePatArgs pval args
-    local (extendECEnv pvars) $ translateExp body
+    (code, val) <- local (extendECEnv pvars) $ translateExp body
+    let assign = Core.SAssign (Core.EVar "_caseresult") val
+    pure (code ++ [assign], Core.EVar "_caseresult")
 
 unwindApp :: Fun.Expr -> (Fun.Expr, [Fun.Expr])
 unwindApp e = go e [] where
