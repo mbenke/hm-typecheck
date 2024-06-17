@@ -76,7 +76,7 @@ genStmt (SReturn expr) = do
     pure (stmts ++ stmts')
 
 genStmt (SBlock stmts) = genStmts stmts
-genStmt (SCase e alts) = do
+genStmt (SMatch e alts) = do
     (stmts, loc) <- genExpr e
     case loc of
         LocSum loctag l r -> do
@@ -86,7 +86,7 @@ genStmt (SCase e alts) = do
                 yultag (LocBool b) = yulBool b
                 yultag (LocInt n) = yulInt n
                 yultag t = error ("invalid tag: "++show t)
-        _ -> error "SCase: type mismatch"
+        _ -> error "SMatch: type mismatch"
 
 genStmt (SFunction name args ret stmts) = do
     let argTypes = map (\(TArg _ t) -> t) args

@@ -3,7 +3,7 @@ import Language.Core
     ( Core(..),
       Alt(..),
       Arg(..),
-      Stmt(SExpr, SAlloc, SReturn, SBlock, SCase, SFunction, SAssign, SAssembly, SRevert),
+      Stmt(SExpr, SAlloc, SReturn, SBlock, SMatch, SFunction, SAssign, SAssembly, SRevert),
       Expr(..),
       Type(TSum, TInt, TBool, TUnit, TPair) )
 import Common.LightYear
@@ -99,7 +99,7 @@ coreStmt = choice
     [ SAlloc <$> (pKeyword "let" *> identifier) <*> (symbol ":" *> coreType)
     , SReturn <$> (pKeyword "return" *> coreExpr)
     , SBlock <$> between (symbol "{") (symbol "}") (many coreStmt)
-    , SCase <$> (pKeyword "match" *> coreExpr <* pKeyword "with") <*> (symbol "{" *> many coreAlt <* symbol "}")
+    , SMatch <$> (pKeyword "match" *> coreExpr <* pKeyword "with") <*> (symbol "{" *> many coreAlt <* symbol "}")
     , SFunction <$> (pKeyword "function" *> identifier) <*> (parens (commaSep coreArg)) <*> (symbol "->" *> coreType)
                 <*> (symbol "{" *> many coreStmt <* symbol "}")
     , SAssembly <$> (pKeyword "assembly" *> yulBlock)

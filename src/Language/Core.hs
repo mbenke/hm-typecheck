@@ -37,7 +37,7 @@ data Stmt
     | SReturn Expr
     | SComment String
     | SBlock [Stmt]
-    | SCase Expr [Alt]
+    | SMatch Expr [Alt]
     | SFunction Name [Arg] Type [Stmt]
     | SRevert String
     -- deriving Show
@@ -78,7 +78,7 @@ instance Pretty Stmt where
     pretty (SReturn e) = text "return" <+> pretty e
     pretty (SComment c) = text "//" <+> text c
     pretty (SBlock stmts) = lbrace $$ nest 4 (vcat (map pretty stmts)) $$ rbrace
-    pretty (SCase e [left, right]) =
+    pretty (SMatch e [left, right]) =
         text "match" <+> pretty e <+> text "with" $$ lbrace
            $$ nest 2 (vcat [prettyAlt "inl" left, prettyAlt "inr" right]) $$ rbrace
         where
