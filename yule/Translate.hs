@@ -48,11 +48,13 @@ flattenRhs (LocInt n) = [yulInt n]
 flattenRhs (LocBool b) = [yulBool b]
 flattenRhs (LocStack i) = [YulIdentifier (stkLoc i)]
 flattenRhs (LocPair l r) = flattenRhs l ++ flattenRhs r
+flattenRhs LocUnit = []
 flattenRhs l = error ("flattenRhs: not implemented for "++show l)
 
 flattenLhs :: Location -> [Name]
 flattenLhs (LocStack i) = [stkLoc i]
 flattenLhs (LocPair l r) = flattenLhs l ++ flattenLhs r
+flattenLhs LocUnit = []
 flattenLhs l = error ("flattenLhs: not implemented for "++show l)
 
 genStmtWithComment :: Stmt -> TM [YulStatement]
