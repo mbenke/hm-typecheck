@@ -210,23 +210,26 @@ genStmts stmts = concat <$> mapM genStmtWithComment stmts
 translateCore :: Core -> TM Yul
 translateCore (Core stmts) = do
     -- assuming the result goes into `_wrapresult`
-    n <- freshId
-    let result = stkLoc n
-    let prolog = [YulAlloc result]
-    insertVar "_result" (LocStack n)
-    payload <- genStmts stmts
     let hasMain = any isMain stmts
     if hasMain
-        then writeln "found main"
-        else writeln "no main"
-    let resultExp = if hasMain
-        then YulCall "main" []
-        else YulIdentifier result
+    then writeln "found main"
+    else writeln "no main found, adding one"
+    let stmts' = if hasMain then stmts else addMain stmts
+    payload <- genStmts stmts'
+    let resultExp = YulCall "main" []
     let epilog = [YulAssign1 "_wrapresult" resultExp]
-    return $ Yul (prolog ++ payload ++ epilog )
+    return $ Yul ( payload ++ epilog )
+
 
 isMain :: Stmt -> Bool
 isMain (SFunction "main" _ _ _) = True
 isMain _ = False
 -- TODO: analyse main type
 -- e.g. mainType :: Stmt -> Maybe Type
+
+isFunction (SFunction {}) = True
+isFunction _ = False
+
+addMain :: [Stmt] -> [Stmt]
+addMain stmts = functions ++ [SFunction "main" [] TInt other]
+  where (functions, other) = span isFunction stmts
