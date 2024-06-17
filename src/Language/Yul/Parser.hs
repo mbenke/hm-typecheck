@@ -10,7 +10,7 @@ import Language.Yul
 
 
 parseYul :: String -> Yul
-parseYul = runMyParser yulProgram
+parseYul = runMyParser "yul" yulProgram
 
 sc :: Parser ()
 sc = L.space space1
@@ -35,6 +35,9 @@ identifier = lexeme ((:) <$> startIdentChar <*> many identChar)
 integer :: Parser Integer
 integer = lexeme L.decimal
 
+stringLiteral :: Parser String
+stringLiteral = char '"' *> manyTill L.charLiteral (char '"')
+
 parens :: Parser a -> Parser a
 parens = between (symbol "(") (symbol ")")
 
@@ -54,7 +57,7 @@ yulExpression = choice
 yulLiteral :: Parser YulLiteral
 yulLiteral = choice
     [ YulNumber <$> integer
-    , YulString <$> (char '"' *> manyTill L.charLiteral (char '"'))
+    , YulString <$> stringLiteral
     , YulTrue <$ pKeyword "true"
     , YulFalse <$ pKeyword "false"
     ]
@@ -69,7 +72,8 @@ yulStatement = choice
         (pKeyword "switch" *> yulExpression) <*>
         many yulCase <*>
         optional (pKeyword "default" *> yulBlock)
-    , YulAssign <$> commaSep identifier <*> (symbol ":=" *> yulExpression)
+    , try (YulAssign <$> commaSep identifier <*> (symbol ":=" *> yulExpression))
+    , YulExpression <$> yulExpression
     ]
 
 yulBlock :: Parser [YulStatement]

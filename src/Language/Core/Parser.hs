@@ -3,7 +3,7 @@ import Language.Core
     ( Core(..),
       Alt(..),
       Arg(..),
-      Stmt(SExpr, SAlloc, SReturn, SBlock, SCase, SFunction, SAssign, SAssembly),
+      Stmt(SExpr, SAlloc, SReturn, SBlock, SCase, SFunction, SAssign, SAssembly, SRevert),
       Expr(..),
       Type(TSum, TInt, TBool, TUnit, TPair) )
 import Common.LightYear
@@ -12,7 +12,7 @@ import Control.Monad.Combinators.Expr
 import Language.Yul.Parser(parseYul, yulBlock)
 
 parseCore :: String -> Core
-parseCore = runMyParser coreProgram
+parseCore = runMyParser "core" coreProgram
 
 -- Note: this module repeats some definitions from YulParser.Name
 -- This is intentional as we may want to make different syntax choices
@@ -39,6 +39,9 @@ identifier = lexeme ((:) <$> startIdentChar <*> many identChar)
 
 integer :: Parser Integer
 integer = lexeme L.decimal
+
+stringLiteral :: Parser String
+stringLiteral = lexeme (char '"' *> manyTill L.charLiteral (char '"'))
 
 parens :: Parser a -> Parser a
 parens = between (symbol "(") (symbol ")")
@@ -83,11 +86,11 @@ pTuple = go <$> parens (commaSep coreExpr) where
 
 
 coreExpr :: Parser Expr
-coreExpr = choice 
+coreExpr = choice
     [ pKeyword "inl" *> (EInl <$> pPrimaryExpr)
     , pKeyword "inr" *> (EInr <$> pPrimaryExpr)
     , pKeyword "fst" *> (EFst <$> pPrimaryExpr)
-    , pKeyword "snd" *> (ESnd <$> pPrimaryExpr)  
+    , pKeyword "snd" *> (ESnd <$> pPrimaryExpr)
     , pPrimaryExpr
     ]
 
@@ -97,9 +100,10 @@ coreStmt = choice
     , SReturn <$> (pKeyword "return" *> coreExpr)
     , SBlock <$> between (symbol "{") (symbol "}") (many coreStmt)
     , SCase <$> (pKeyword "match" *> coreExpr <* pKeyword "with") <*> (symbol "{" *> many coreAlt <* symbol "}")
-    , SFunction <$> (pKeyword "function" *> identifier) <*> (parens (commaSep coreArg)) <*> (symbol "->" *> coreType) 
+    , SFunction <$> (pKeyword "function" *> identifier) <*> (parens (commaSep coreArg)) <*> (symbol "->" *> coreType)
                 <*> (symbol "{" *> many coreStmt <* symbol "}")
     , SAssembly <$> (pKeyword "assembly" *> yulBlock)
+    , SRevert <$> (pKeyword "revert" *> stringLiteral)
     , try (SAssign <$> (coreExpr <* symbol ":=") <*> coreExpr)
     , SExpr <$> coreExpr
     ]

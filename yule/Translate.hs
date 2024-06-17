@@ -106,6 +106,10 @@ genStmt (SFunction name args ret stmts) = do
             insertVar name loc
             return (flattenLhs loc)
 
+genStmt (SRevert s) = pure
+  [ YulExpression $ YulCall "mstore" [yulInt 0, YulLiteral (YulString s)]
+  , YulExpression $ YulCall "revert" [yulInt 0, yulInt (length s)]
+  ]
 
 genStmt e = error $ "genStmt unimplemented for: " ++ show e
 

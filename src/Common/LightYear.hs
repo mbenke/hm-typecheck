@@ -14,8 +14,8 @@ import Data.Void
 
 type Parser = Parsec Void String
 
-runMyParser :: Parser a -> String -> a
-runMyParser p = runMyParser' p ""
+runMyParser :: String -> Parser a -> String -> a
+runMyParser name p = runMyParser' p name
 
 runMyParser' :: Parser a -> String -> String -> a
 runMyParser' p filename input = 

@@ -39,6 +39,7 @@ data Stmt
     | SBlock [Stmt]
     | SCase Expr [Alt]
     | SFunction Name [Arg] Type [Stmt]
+    | SRevert String
     -- deriving Show
 
 data Arg = TArg Name Type
@@ -79,12 +80,13 @@ instance Pretty Stmt where
     pretty (SBlock stmts) = lbrace $$ nest 4 (vcat (map pretty stmts)) $$ rbrace
     pretty (SCase e [left, right]) =
         text "match" <+> pretty e <+> text "with" $$ lbrace
-           $$ nest 2 (vcat [prettyAlt "inl" left, prettyAlt "inr" right]) $$ rbrace 
+           $$ nest 2 (vcat [prettyAlt "inl" left, prettyAlt "inr" right]) $$ rbrace
         where
             prettyAlt tag (Alt n s) = text tag <+> text n <+> text "=>" <+> pretty s
     pretty (SFunction f args ret stmts) =
         text "function" <+> text f <+> parens (hsep (punctuate comma (map pretty args))) <+> text "->" <+> pretty ret <+> lbrace
            $$ nest 2 (vcat (map pretty stmts))  $$ rbrace
+    pretty (SRevert s) = text "revert" <+> text s
 
 instance Pretty Arg where
     pretty (TArg n t) = text n <+> text ":" <+> pretty t
