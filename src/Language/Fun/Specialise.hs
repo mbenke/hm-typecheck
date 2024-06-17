@@ -104,7 +104,7 @@ specialiseExp (ECase e alts) etyp = do
   (_ps, styp) <- tiExpr e `wrapError` e
   e' <- specialiseExp e styp
   alts' <- mapM (\alt -> specialiseAlt alt styp etyp) alts
-  return (ECase e' alts')
+  return (ECase (ETyped e' styp) alts')
 -- this should never happen, but just in case:
 specialiseExp e etyp = throwError("FAILED to specialise "++str e)
 

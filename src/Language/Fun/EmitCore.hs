@@ -5,7 +5,7 @@ import TCM
 import Data.Map qualified as Map
 import Control.Monad.Reader.Class
 import Control.Monad.State(gets)
-import Language.Fun.ISyntax(Name, ToStr(..))
+import Language.Fun.ISyntax(Name, ToStr(..), Expr(..))
 import Language.Fun.ISyntax qualified as Fun
 import Language.Fun.Types qualified as Fun
 
@@ -34,8 +34,9 @@ emitSpec :: Name -> Specialisation -> TCM Core.Stmt
 emitSpec origName (name, typ, args, body) = do
     let (lambody, lamas) = stripLambda body
     let allArgs = args ++ lamas
-    warn ["> emitSpec ", name, " : ", str typ]
-    warn ["! emitSpec: allArgs=", str allArgs]
+    -- warn ["> emitSpec ", name, " : ", str typ]
+    -- warn ["! emitSpec: allArgs=", str allArgs]
+    -- warn ["! emitSpec: lambody=", str lambody]
     let coreArgs = map translateArg allArgs
     coreBody <- translateBody lambody
     return (Core.SFunction name coreArgs Core.TInt coreBody)
@@ -84,12 +85,12 @@ Start with special case for product types - just transform to projections
 -}
 
 
-translateExp (Fun.ECase p [alt]) = do
+translateExp (Fun.ECase (ETyped p typ) [alt]) = do
     (pcode, pval) <- translateExp p
     (bcode, bval) <- translateAlt pval alt
     pure (pcode ++ bcode, bval)
 
-
+translateExp (Fun.ECase  p [alt]) = error "translateExp: case with untyped scrutinee"
 translateExp exp = error ("translateExp: not implemented for "++str exp)
 
 translateAlt :: Core.Expr -> Fun.CaseAlt -> Translation Core.Expr
