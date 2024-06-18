@@ -127,7 +127,8 @@ specialiseCon f t = do
   fscheme@(Forall tvs (fps :=> ftyp)) <- askType f
   phi <- mgu ftyp t
   let tvs' = apply phi (map TVar tvs)
-  let f' = specName f tvs'
+  -- let f' = specName f tvs'
+  let f' = f -- FIXME: need better specialisation for data types
   warn ["! specCon ",f," : ", str fscheme, " to ", f', " : ", str t]
   return (ECon f')
 
