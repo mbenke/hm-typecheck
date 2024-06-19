@@ -5,6 +5,9 @@ import Language.Fun.Types
 import Language.Fun.Constraints(HasTypes(..))
 
 type Name = String
+
+data Phase = UD | Parsed | Typed | Specialised
+
 data Expr
     = ELam [Arg] Expr        -- function \args -> expr
     | ELet Name Expr Expr    -- local definition: let name = expr1 in expr2
@@ -16,19 +19,17 @@ data Expr
     | EBlock [Stmt String]   -- desugared statements annotated with their source form
     | ETyped Expr Type
     | ECase Expr [CaseAlt]
-  deriving Eq
 
-data Arg = UArg Name | TArg Name Type deriving Eq
+data Arg = UArg Name | TArg Name Type
 
 -- case alternative: constructor name, bound variables, expression
-data CaseAlt = CaseAlt Name [Arg] Expr deriving Eq
+data CaseAlt = CaseAlt Name [Arg] Expr
 
 data Stmt ann             -- ann - annotation (e.g. stmt before desugar)
     = SExpr ann Expr
 --    | SAssign ann Expr Expr
     | SAlloc ann Name Type
     | SInit ann Name Expr
-  deriving (Eq)
 
 data Decl
     = TypeDecl Type [ConAlt]
@@ -38,14 +39,14 @@ data Decl
     | InstDecl (Qual Pred) [Decl]
     | ClsDecl Pred [Decl]
     | Pragma String
-  deriving (Eq, Show)
+  deriving (Show)
 
 data Bind = Bind { bindName :: Name , bindArgs :: [Arg], bindBody :: Expr }
 
-  deriving (Eq, Show)
+  deriving (Show)
 
 data ConAlt = ConAlt Name [Type]
-  deriving (Eq, Show)
+  deriving (Show)
 
 
 newtype Prog = Prog [Decl]
