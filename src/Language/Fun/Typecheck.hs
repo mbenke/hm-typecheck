@@ -1,9 +1,10 @@
-{-# LANGUAGE FlexibleInstances #-}
-module Language.Fun.Checker where
+{-# LANGUAGE FlexibleInstances, TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}  -- for a general ToStr instance
+module Language.Fun.Typecheck where
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.State
-import Data.List((\\), nub, intercalate)
+import Data.List((\\), union, nub, intercalate)
 import qualified Data.Map as Map
 
 import Language.Fun.ISyntax
@@ -13,55 +14,173 @@ import Language.Fun.Constraints
 import Common.NameSupply
 import TCM
 import Common.Debug
+import Language.Fun.Phase
 
+type instance XLam FunTc = NoExtField
+type instance XLet FunTc = NoExtField
+type instance XApp FunTc = NoExtField
+type instance XVapp FunTc = NoExtField
+type instance XVar FunTc = Type
+type instance XCon FunTc = Type
+type instance XInt FunTc = NoExtField
+type instance XBlock FunTc = NoExtField
+type instance XTyped FunTc = NoExtField
+type instance XCase FunTc = NoExtField
+type instance XExp FunTc = DataConCantHappen
 
-tiExpr :: Expr -> TCM ([Pred], Type)
-tiExpr (EInt _) = pure ([], TInt)
+type TcExpr = ExpX FunTc
+pattern TcInt :: Integer -> TcExpr
+pattern TcInt n = EIntX NoExtField n
+pattern TcApp :: TcExpr -> TcExpr -> TcExpr
+pattern TcApp e1 e2 = EAppX NoExtField e1 e2
+
+type TcDecl = DeclX FunTc
+type TcProg = ProgX FunTc
+type TcBind = BindX FunTc
+
+instance HasTypes TcExpr where
+  apply s (ELamX _ args e) = ELamX NoExtField args (apply s e)
+  apply s (ELetX _ x e1 e2) = ELetX NoExtField x (apply s e1) (apply s e2)
+  apply s (EAppX _ e1 e2) = EAppX NoExtField (apply s e1) (apply s e2)
+  apply s (EVappX _ e es) = EVappX NoExtField (apply s e) (map (apply s) es)
+  apply s (EVarX t n) = EVarX (apply s t) n
+  apply s (EConX t n) = EConX (apply s t) n
+  apply s (EIntX _ n) = EIntX NoExtField n
+  apply s (EBlockX _ stmts) = EBlockX NoExtField stmts
+  apply s (ETypedX _ e t) = ETypedX NoExtField (apply s e) t
+  apply s (ECaseX _ e alts) = ECaseX NoExtField (apply s e) alts
+  apply s (ExpX a) = absurd a
+  ftv (ELamX _ args e) = ftv e
+  ftv (ELetX _ _ e1 e2) = ftv e1 `union` ftv e2
+  ftv (EAppX _ e1 e2) = ftv e1 `union` ftv e2
+  ftv (EVappX _ e es) = foldr union [] (map ftv (e:es))
+  ftv (EVarX t _) = ftv t
+  ftv (EConX t _) = ftv t
+  ftv (EIntX _ _) = []
+  ftv (EBlockX _ stmts) = []
+  ftv (ETypedX _ e _) = ftv e
+  ftv (ECaseX _ e alts) = ftv e -- `union` foldr union [] (map ftv alts)
+
+instance Show TcExpr where
+  showsPrec d (EIntX _ n) = showsPrec 10 n
+  showsPrec d (EVarX t n) = showParen True $
+             showString n .showString ": " . shows t
+  showsPrec d (EConX t n) = showParen True $
+             showString n .showString ": " . shows t
+  showsPrec d (EAppX _ e1 e2) = showParen (d > ap_prec) $
+             showsPrec ap_prec e1   .
+             showString " "           .
+             showsPrec (ap_prec+1) e2
+         where ap_prec = 10
+
+  showsPrec d (ELamX _ args e) = showParen (d > lam_prec) $
+             showString "\\" . showArgs args . showString " -> " .
+             showsPrec lam_prec e
+         where
+           lam_prec = 1
+           showArgs = showString . unwords  . map showArg
+
+  showsPrec d (ELetX _ x e1 e2) = showParen (d > let_prec) $
+             showString "let " . showString x . showString "= " . showsPrec 0 e1 .
+             showsPrec let_prec e2
+         where let_prec = 2
+
+  showsPrec d (EBlockX _ stmts) = showString "{\n  " .
+                               showString ( intercalate ";\n  " (map show stmts)) .
+                               showString "\n}"
+  showsPrec d (ETypedX _ e t) = showParen (d > typ_prec) $
+             shows e .
+             showString " : " . shows t
+         where typ_prec = 2
+  showsPrec d (ECaseX _ e alts) = showString "case " . showsPrec 0 e . showString " of {\n  " .
+                               showString ( intercalate ";\n  " (map show alts)) .
+                               showString "\n}"
+
+showArg :: Arg -> String
+showArg (UArg s) = s
+showArg (TArg s t) = concat ["(",s,":",show t,")"]
+
+instance Show TcDecl where
+  show :: TcDecl -> String
+  show (TypeDecl t alts) = unwords [show t, "=", salts]
+     where salts = intercalate " | " (map show alts)
+  show (ValDecl n qt) = unwords [n, ":", show qt]
+  show (ValBind n [] e) = unwords [n, "=", show e]
+  show (ValBind n as e) = unwords [n, sas, "=", show e] where
+    sas = unwords (map showArg as)
+  show (ClsDecl pred mdecls) = unwords ["class", show pred, "{",  showDecls mdecls, "}"] where
+    showDecls ds = intercalate "; " (map showDecl ds)
+  show (InstDecl pred mdecls) = unwords ["instance", show pred]
+  show (Mutual ds) = "mutual {" ++ intercalate ";\n " (map show ds) ++ "}"
+  show (Pragma prag) = "pragma " ++ prag
+
+tiExpr :: Expr -> TCM ([Pred], Type) -- FIXME: transitional
+tiExpr e = do
+  (_, ps, t) <- tcExpr e
+  pure (ps,t)
+
+instance Show TcProg where
+  show (Prog  decls) = intercalate ";\n" (map show decls)
+
+tcExpr :: Expr -> TCM (TcExpr, [Pred], Type)
+tcExpr e@(EInt n) = pure (TcInt n, [], TInt)
 -- check a lambda (function) such as `\x y -> x`
-tiExpr (ELam args e1) = do
+tcExpr e@(ELam args e1) = do
   env <- getEnv
-  as <- addArgs args
-  (ps, t1) <- tiExpr e1
+  argTypes <- addArgs args
+  (tce1, ps, t1) <- tcExpr e1
   -- typing function body may have created constraints on argument types
   -- these are recorded in the current substitution, which needs to be applied here
-  tas <- withCurrentSubst as
+  argTypes' <- withCurrentSubst argTypes
+  tce1' <- withCurrentSubst tce1
   putEnv env
-  pure $ (ps, foldr (:->) t1 tas)
+  let typedArgs = zipWith addType args argTypes'
+  pure (ELamX mempty typedArgs tce1, ps, foldr (:->) t1 argTypes')
+  where
+    addType :: Arg -> Type -> Arg
+    addType (UArg name) t = TArg name t
+    addType arg _ = arg
 
-tiExpr (EVar v) = do
+tcExpr (EVar v) = do
   s <- askType v
   ps :=> t <- freshInst s
-  pure (ps, t)
+  pure (EVarX t v, ps, t)
 
-tiExpr (ECon v) = do
+tcExpr (ECon v) = do
   s <- askType v
   ps :=> t <- freshInst s
-  pure (ps, t)
+  pure (EConX t v, ps, t)
 
 -- check an application (function call)
-tiExpr e@(EApp fun arg) = do
-  (ps, t1) <- tiExpr fun
-  (qs, t2) <- tiExpr arg
+tcExpr e@(EApp fun arg) = do
+  (tcfun, ps, t1) <- tcExpr fun
+  (tcarg, qs, t2) <- tcExpr arg
   freshname <- tcmDeplete
   let tr = TVar freshname
   unify t1 (t2 :-> tr) `wrapError` e
   s <- getSubst
   let tr' = apply s tr
   let preds = apply s (ps ++ qs)
+  let tcfun' = apply s tcfun
+  let tcarg' = apply s tcarg
   -- info ["< EApp ", str fun, ":", str t1, "@", str arg,  " : ", str (preds :=> tr')]
-  return (preds, tr')
+  return (EAppX mempty tcfun' tcarg', preds, tr')
 
-tiExpr exp@(ELet x e1 e2) = withLocalEnv do
-  tiBindgroup [ValBind x [] e1]
-  (qs, t) <- tiExpr e2
-  return (qs, t)
+tcExpr exp@(ELet x e1 e2) = withLocalEnv do
+  (tce1, ps, t1) <- tcExpr e1
+  tcBindgroup [ValBind x [] e1]
+  (tce2, qs, t) <- tcExpr e2
+  return (ELetX mempty x tce1 tce2, qs, t) -- FIXME
 
-tiExpr (ETyped e t) = do
-  (ps, t1) <- tiExpr e
+tcExpr (ETyped e t) = do
+  (tce, ps, t1) <- tcExpr e
   unify t t1
-  return (ps, t1)
+  tce1 <- withCurrentSubst tce
+  return (tce1, ps, t1)
 
-tiExpr (EBlock stmts) = withLocalEnv (go stmts) where
+tcExpr e@(EBlock stmts) = do --FIXME: TcStmts
+  withLocalEnv (go stmts) 
+  return (EBlockX mempty stmts, [], unitT) where 
     unit = ([], unitT)
     go [] = return unit
     go [stmt] = tiStmt stmt
@@ -83,12 +202,17 @@ tiExpr (EBlock stmts) = withLocalEnv (go stmts) where
       info ["alloc ", n, " : ", str t, " ~> ", n, " : ", str q]
       return unit
 
-tiExpr (ECase e alts) = do -- TODO unify scrutinised expr type with con target
+tcExpr (ECase scrut alts) = do -- TODO unify scrutinised expr type with con target
   targetType <- TVar <$> tcmDeplete
-  (ps, scrutType) <- tiExpr e   -- scrutinisied expresion
-  ps' <- tiAlts scrutType targetType alts
+  (tcscrut, ps, scrutType) <- tcExpr scrut   -- scrutinisied expresion
+  (tcalts, ps') <- tcAlts scrutType targetType alts
   resultType <- withCurrentSubst targetType
-  return (ps ++ ps', resultType)
+  return (ECaseX mempty tcscrut tcalts, ps ++ ps', resultType)
+
+tcAlts :: Type -> Type -> [CaseAlt] -> TCM ([CaseAlt], [Pred])
+tcAlts scrut target alts = do
+  ps <- tiAlts scrut target alts
+  return (alts, ps)
 
 tiAlts ::Type -> Type -> [CaseAlt] -> TCM [Pred]
 tiAlts scrut target [] = return []
@@ -124,18 +248,20 @@ addConArgs (at :-> rest) (arg:args) = do
 ------------------------------------------------------------
 
 tiBind :: Bind -> TCM ([Pred], Type)
-tiBind (Bind n args e) = withLocalEnv do
+tiBind b = snd <$> tcBind b
+
+tcBind :: Bind -> TCM (TcBind, ([Pred], Type))
+tcBind (Bind n args e) = withLocalEnv do
   as <- addArgs args
-  (ps0, t0) <- tiExpr e
+  (tce0, ps0, t0) <- tcExpr e
   let t1 = foldr (:->) t0 as
   -- Unify the inferred type with the assumed type variable
   assumed <- askType n
   (aq :=> at) <- freshInst assumed
   unify at t1
-  t <- withCurrentSubst t1
-  ps <- withCurrentSubst ps0
+  (tce, ps :=> t) <- withCurrentSubst (tce0, ps0 :=> t1)
   warn ["< tiBind ", n, " : ", str (ps :=> t)]
-  return (ps, t)
+  return (Bind n args tce, (ps, t))
 
 
 tiArg :: Arg -> TCM (Name, Type)
@@ -166,64 +292,75 @@ schemeOf :: Expr -> TCM Scheme
 schemeOf exp = wrapError ty exp where
   ty = tiExpr exp >>= generalize
 
-tiDecl :: Decl -> TCM ()
-tiDecl (ValDecl n qt) = do
+tiDecl decl = tcDecl decl >> return ()
+
+tcDecl :: Decl -> TCM TcDecl
+tcDecl (ValDecl n qt) = do
   let tvs = ftv qt
   let s = Forall tvs qt
   extEnv n s
+  return (ValDecl n qt) 
 
-tiDecl d@(ValBind n as e) = do
-  tiBindgroup [d]
+tcDecl d@(ValBind n as e) = do
+  (Bind n' as' e') <- tcBindgroup1 d
   Forall tvs (qs :=> typ) <- askType n
   let exp = formLambda as typ e
   addResolution n typ exp
-
-tiDecl (Mutual ds) = tiBindgroup ds
+  return (ValBind n as e')
+tcDecl (Mutual ds) = do
+  tcbs <- tcBindgroup ds 
+  return $  Mutual [ValBind n a e | Bind n a e <- tcbs ]
 
 -- check type declaration,such as `Option a = None |  Some a`
-tiDecl (TypeDecl typ@(TCon name args) alts) = do
+tcDecl decl@(TypeDecl typ@(TCon name args) alts) = do
   constructors <- tiConAlts typ alts
   forM_ constructors addCon
   let consNames = map fst constructors
   let arity = length args
   let typeInfo = (arity, consNames)
   modify (addTypeInfo name typeInfo)
+  return (TypeDecl typ alts)
   where
       addCon (name, typ) = extEnv name typ
 
 -- check instance declaration such as `instance Int : Eq`
-tiDecl (InstDecl qp methods) = tiInstance qp methods
+tcDecl (InstDecl qp methods) = do
+  tcms <- tcInstance qp methods
+  return (InstDecl qp tcms)
 
 -- check class declaration such as `class a:Eq { eq : a -> a -> Bool }`
-tiDecl(ClsDecl pred@(InCls c as (TVar mainTVar)) methods) = do
-  methodNames <- forM methods tiMD
+tcDecl decl@(ClsDecl pred@(InCls c as (TVar mainTVar)) methods) = do
+  tcMethods <- forM methods tcMD
+  let (methodNames, tcMethodDecls) = unzip tcMethods
   let classInfo = (className, methodNames)
-  modify (addClassInfo className (classArity, methodNames)) where
+  modify (addClassInfo className (classArity, methodNames)) 
+  return (ClsDecl pred tcMethodDecls)
+  where
     className = predName pred
     classArity = length $ predArgs pred
-    tiMD (ValDecl name ([] :=> typ)) = do
+    tcMD (ValDecl name ([] :=> typ)) = do
       -- ambiguity check
       unless (mainTVar `elem` ftv typ) $ throwError $ unlines
         [ "- in the declaration of class " ++ className ++ ":"
         , "  ambiguous type variable in method " ++ name ++ ": " ++ show typ
         ]
       extEnv name $ Forall (ftv typ) ([pred] :=> typ)
-      return name
-    tiMD (ValDecl name (preds :=> typ)) = throwError $ unlines
+      return (name, ValDecl name ([] :=> typ))
+    tcMD (ValDecl name (preds :=> typ)) = throwError $ unlines
            [ "- in the declaration of class" ++ predName pred
            , "- in method " ++ name ++ ":"
            , "  qualifiers not allowed in method types"
            ]
 
-    tiMD decl = throwError $ unlines
+    tcMD decl = throwError $ unlines
            [ "- in the declaration of class " ++ className ++ ":"
            , "  only type declarations allowed, illegal declaration: " ++ show decl
            ]
-tiDecl(ClsDecl (InCls c as complexType) _) = throwError $ unlines
+tcDecl(ClsDecl (InCls c as complexType) _) = throwError $ unlines
            [ "- in the declaration of class " ++ c ++ ":"
            , "  main argument must be a type variable, illegal type: " ++ show complexType
            ]
-tiDecl (Pragma prag) = process prag where
+tcDecl decl@(Pragma prag) = process prag >> return (Pragma prag) where
     process "log" = void $ setLogging True >> warn ["-- Logging ON  --"]
     process "nolog" = setLogging False >> warn ["-- Logging OFF --"]
     process "nocoverage" = setCoverageCheck False >> warn ["-- Coverage Checking OFF --"]
@@ -241,17 +378,22 @@ tiConAlt result (ConAlt cname argumentTypes) = pure (cname, simpleGen constructo
   simpleGen t = Forall (ftv t) ([] :=> t)
 
 tiInstance :: Qual Pred -> [Decl] -> TCM ()
-tiInstance inst@(constraint :=> ihead@(InCls c as t)) methods = do
-  let header :: Decl = InstDecl inst [] -- for error messages
+tiInstance qp d = tcInstance qp d >> return ()
+
+tcInstance :: Qual Pred -> [Decl] -> TCM [TcDecl]
+tcInstance inst@(constraint :=> ihead@(InCls c as t)) methods = do
+  let 
+    header :: Decl = InstDecl inst [] -- for error messages
   -- warn ["+ tiInstance ", str inst]
   ois <- getInsts c `wrapError` header
   checkOverlap t ois
   enabled <- gets tcsCoverageEnabled
   when enabled $ checkCoverage c as t `wrapError` header
   checkMeasure constraint ihead `wrapError` header
-  forM_ methods (checkMethod ihead)
+  tcbs <- forM methods (checkMethod ihead)
   let anf = anfInstance inst
   modify (addInstInfo anf)
+  return [ValBind n a e |  Bind n a e <- tcbs]
   where
     checkMeasure :: [Pred] -> Pred -> TCM ()
     checkMeasure constraint ihead =
@@ -291,7 +433,7 @@ tiInstance inst@(constraint :=> ihead@(InCls c as t)) methods = do
     findPred cname (p:ps) | predName p == cname = Just p
                           | otherwise = findPred cname ps
     findPred cname [] = Nothing
-    checkMethod :: Pred -> Decl -> TCM ()
+    checkMethod :: Pred -> Decl-> TCM TcBind
     checkMethod ihead (ValBind name args body) = do
       let InCls cname cargs mainType = ihead
       Forall tvs (qs :=> genType)  <- askType name
@@ -302,38 +444,46 @@ tiInstance inst@(constraint :=> ihead@(InCls c as t)) methods = do
       let args' = apply subst args
       let exp = formLambda args' expType body
       let iTypes = apply subst (map TVar tvs)
-      (iq, it) <- tiExpr exp
+      (tce, iq, it) <- tcExpr exp
       warn ["< tiExpr ", str exp, " : ", str (iq:=>it)]
       match it expType `wrapError` exp
       addResolution name expType exp
-      return ()
+      return (Bind name args' tce)
 
 formLambda :: [Arg] -> Type -> Expr -> Expr
 formLambda [] typ body = body
 formLambda as typ body = ELam as body where
+  addTypes :: [Arg] -> Type -> [Arg]
   addTypes [] t = []
   addTypes (a:as) (t :-> u)  = TArg (argName a) t : addTypes as u
   addTypes _ _ = error "formLambda: wrong number of arguments"
 
-tiProg :: Prog -> TCM ()
-tiProg (Prog decls) = do
-  cleanTiDecls decls
-  where
-    cleanTiDecls = mapM_ cleanTiDecl
-    cleanTiDecl d = clearSubst >> tiDecl d
+tiProg p = tcProg p >> return ()
 
+tcProg :: Prog -> TCM TcProg
+tcProg (Prog decls) = Prog <$> mapM tcDecl decls
 
-tiBindgroup :: [Decl] -> TCM ()   -- TODO: specialisation
-tiBindgroup binds = do
+-- check a bindgroup containing one bind
+tcBindgroup1 :: Decl -> TCM TcBind
+tcBindgroup1 (ValBind n as e) = do
+  tcbs <- tcBindgroup [ValBind n as e]
+  case tcbs of
+    [b] -> return b
+    _ -> throwError "internal error: tcBindgroup1"
+
+tcBindgroup :: [Decl] -> TCM [TcBind]   -- TODO: specialisation
+tcBindgroup binds = do
   binds <- scanDecls binds
   -- warn ["> tiBindgroup ", str binds]
   -- cannot clean substitution when doing mutual recursion
-  qts <- mapM tiBind binds
+  qtBinds <- mapM tcBind binds
+  let (tcbs, qts) = unzip qtBinds
   qts' <- withCurrentSubst qts
   schemes <- mapM generalize qts'
   let names = map bindName binds
   let results = zip names schemes
   mapM_ (uncurry extEnv) results
+  return [Bind n a e | Bind n a e <- tcbs]
   where
     scanDecls :: [Decl] -> TCM [Bind]
     scanDecls [] = return []

@@ -8,12 +8,12 @@ module Language.Fun.ISyntax
 , XLam, XLet, XApp, XVapp, XVar, XCon
 , XInt, XBlock, XTyped, XCase, XExp
 , Arg(..), argName
-, CaseAlt(..)
+, CaseAltX(..), CaseAlt
 , Stmt(..)
-, Decl(..)
-, Bind(..)
+, DeclX(..), Decl
+, BindX(..), Bind
 , ConAlt(..)
-, Prog(..)
+, ProgX(..), Prog
 , ToStr(..), HasTypes(..), HasFreeVars(..)
 , showExpr, showDecl
 ) where
@@ -106,7 +106,9 @@ pattern ECase e alts <- ECaseX _ e alts
 data Arg = UArg Name | TArg Name Type
 
 -- case alternative: constructor name, bound variables, expression
-data CaseAlt = CaseAlt Name [Arg] Expr
+data CaseAltX x = CaseAlt Name [Arg] (ExpX x)
+type CaseAlt = CaseAltX FunUD
+-- deriving instance Show CaseAlt
 
 data Stmt ann             -- ann - annotation (e.g. stmt before desugar)
     = SExpr ann Expr
@@ -114,25 +116,35 @@ data Stmt ann             -- ann - annotation (e.g. stmt before desugar)
     | SAlloc ann Name Type
     | SInit ann Name Expr
 
-data Decl
+data DeclX x
     = TypeDecl Type [ConAlt]
     | ValDecl Name (Qual Type)
-    | ValBind Name [Arg] Expr
-    | Mutual [Decl]
-    | InstDecl (Qual Pred) [Decl]
-    | ClsDecl Pred [Decl]
+    | ValBind Name [Arg] (ExpX x)
+    | Mutual [DeclX x]
+    | InstDecl (Qual Pred) [DeclX x]
+    | ClsDecl Pred [DeclX x]
     | Pragma String
-  deriving (Show)
+  -- deriving (Show)
+type Decl = DeclX FunUD
+instance Show Decl where show = showDecl
 
-data Bind = Bind { bindName :: Name , bindArgs :: [Arg], bindBody :: Expr }
-
-  deriving (Show)
+data BindX x = Bind
+  { bindName :: Name
+  , bindArgs :: [Arg]
+  , bindBody :: ExpX x
+}
+type Bind = BindX FunUD
+deriving  instance Show Bind
 
 data ConAlt = ConAlt Name [Type]
-  deriving (Show)
+  -- deriving (Show)
 
+instance Show ConAlt where
+    show (ConAlt n ts) = unwords [n, unwords (map show ts)]
 
-newtype Prog = Prog [Decl]
+data ProgX x = Prog [DeclX x]
+type Prog = ProgX FunUD
+
 
 instance Show Expr where
   showsPrec d (EInt n) = showsPrec 10 n
@@ -192,14 +204,15 @@ showArg (TArg s t) = concat ["(",s,":",show t,")"]
 instance Show CaseAlt where
     show (CaseAlt c args e) = concat [c, " ", unwords (map show args), " -> ", show e]
 
+
 showDecl (ValDecl n qt) = unwords [n, ":", show qt]
 showDecl (ValBind n [] e) = unwords [n, "=", show e]
 showDecl (ValBind n as e) = unwords [n, sas, "=", show e] where
     sas = unwords (map showArg as)
 showDecl (ClsDecl pred mdecls) = unwords ["class", show pred, "{",  showDecls mdecls, "}"] where
     showDecls ds = intercalate "; " (map showDecl ds)
-showDecl (InstDecl pred mdecls) = unwords ["instance", show pred] where
-showDecl d = show d
+showDecl (InstDecl pred mdecls) = unwords ["instance", show pred]
+-- showDecl d = show d
 
 argName :: Arg -> Name
 argName (UArg s) = s
@@ -211,7 +224,7 @@ class ToStr a where
 instance {-# OVERLAPPABLE  #-} Show a => ToStr a where str = show
 instance {-# OVERLAPPING   #-} ToStr String where str = id
 instance {-# OVERLAPPING   #-} ToStr Expr where str = showExpr
-instance {-# OVERLAPPING   #-} ToStr Decl where str = showDecl
+-- instance {-# OVERLAPPING   #-} ToStr Decl where str = showDecl
 
 class HasFreeVars a where
     freeVars :: a -> [Name]

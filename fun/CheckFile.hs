@@ -11,7 +11,8 @@ import ParFun   ( pProg, myLexer )
 import PrintFun ( printTree)
 import Desugar
 import Language.Fun.ISyntax
-import Language.Fun.Checker
+-- import Language.Fun.Checker
+import Language.Fun.Typecheck
 import Language.Fun.EmitCore
 import TCM
 import Language.Fun.Specialise
@@ -73,8 +74,11 @@ vcheckProg = checkProg' True
 
 processProg :: Prog -> TCM (Maybe Core)
 processProg prog@(Prog decls) = do
-  tiProg prog
+  tcp <- tcProg prog
   tld <- buildTLD decls
+  warn ["Typechecked program:"]
+  warn [show tcp]
+  warn ["---------------------------------"]
   case Map.lookup entrypoint tld of
     Nothing -> return Nothing
     Just def -> do
