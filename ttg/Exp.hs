@@ -2,7 +2,12 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
-module Exp where
+module Exp
+(  ExpX(.., Abs, App, Ann, Var,Lit)
+, Typ(..), Name, Var, Tyvar, Exp
+, ExpTc
+, absurd
+) where
 
 data Pass = UD | Parsed | Typechecked
 data ComPass (c::Pass) where

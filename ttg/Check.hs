@@ -1,6 +1,9 @@
 {-# LANGUAGE LambdaCase #-}
 module Check where
 import Exp
+  ( Exp, ExpX(..), ExpTc(..), Typ(..)
+  )
+
 import TCM
 import Unify ( HasTypes(apply) )
 import Control.Monad.Error.Class ( MonadError(throwError) )
