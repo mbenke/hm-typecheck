@@ -1,5 +1,22 @@
 {-# LANGUAGE UndecidableInstances #-}  -- for a general ToStr instance
-module Language.Fun.ISyntax where
+{-# LANGUAGE TypeFamilies, TypeSynonymInstances #-}
+
+module Language.Fun.ISyntax
+( Name, Expr
+, ExpX( .., ELam, ELet, EApp, EVapp, EVar, ECon
+       , EInt, EBlock, ETyped, ECase)
+, XLam, XLet, XApp, XVapp, XVar, XCon
+, XInt, XBlock, XTyped, XCase, XExp
+, Arg(..), argName
+, CaseAlt(..)
+, Stmt(..)
+, Decl(..)
+, Bind(..)
+, ConAlt(..)
+, Prog(..)
+, ToStr(..), HasTypes(..), HasFreeVars(..)
+, showExpr, showDecl
+) where
 import Data.List(union, intersect, nub, (\\), intercalate)
 import Language.Fun.Types
 import Language.Fun.Constraints(HasTypes(..))
@@ -7,17 +24,84 @@ import Language.Fun.Phase
 
 type Name = String
 
-data Expr
-    = ELam [Arg] Expr        -- function \args -> expr
-    | ELet Name Expr Expr    -- local definition: let name = expr1 in expr2
-    | EApp Expr Expr         -- function call: f(arg)
-    | EVapp Expr [Expr]      -- vector application: f(args)
-    | EVar Name              -- variable
-    | ECon Name              -- value constructor
-    | EInt Integer           -- integer literal
-    | EBlock [Stmt String]   -- desugared statements annotated with their source form
-    | ETyped Expr Type
-    | ECase Expr [CaseAlt]
+data ExpX x
+    = ELamX (XLam x) [Arg] (ExpX x)         -- function \args -> expr
+    | ELetX (XLet x) Name (ExpX x) (ExpX x) -- local definition: let name = expr1 in expr2
+    | EAppX (XApp x) (ExpX x) (ExpX x)         -- function call: f(arg)
+    | EVappX (XApp x) (ExpX x) [(ExpX x)]      -- vector application: f(args)
+    | EVarX  (XVar x) Name              -- variable
+    | EConX (XCon x) Name              -- value constructor
+    | EIntX (XInt x) Integer           -- integer literal
+    | EBlockX (XBlock x) [Stmt String]   -- desugared statements annotated with their source form
+    | ETypedX (XTyped x) (ExpX x) Type
+    | ECaseX (XCase x) (ExpX x) [CaseAlt]
+    | ExpX (XExp x)
+
+type family XLam x
+type family XLet x
+type family XApp x
+type family XVapp x
+type family XVar x
+type family XCon x
+type family XInt x
+type family XBlock x
+type family XTyped x
+type family XCase x
+type family XExp x
+
+type Expr = ExpX FunUD
+
+type instance XLam FunUD = NoExtField
+type instance XLet FunUD = NoExtField
+type instance XApp FunUD = NoExtField
+type instance XVapp FunUD = NoExtField
+type instance XVar FunUD = NoExtField
+type instance XCon FunUD = NoExtField
+type instance XInt FunUD = NoExtField
+type instance XBlock FunUD = NoExtField
+type instance XTyped FunUD = NoExtField
+type instance XCase FunUD = NoExtField
+type instance XExp FunUD = DataConCantHappen
+
+pattern ELam :: [Arg] -> Expr -> Expr
+pattern ELam args e <- ELamX _ args e
+  where ELam args e = ELamX NoExtField args e
+
+pattern ELet :: Name -> Expr -> Expr -> Expr
+pattern ELet x e1 e2 <- ELetX _ x e1 e2
+  where ELet x e1 e2 = ELetX NoExtField x e1 e2
+
+pattern EApp :: Expr -> Expr -> Expr
+pattern EApp e1 e2 <- EAppX _ e1 e2
+  where EApp e1 e2 = EAppX NoExtField e1 e2
+
+pattern EVapp :: Expr -> [Expr] -> Expr
+pattern EVapp e es <- EVappX _ e es
+  where EVapp e es = EVappX NoExtField e es
+
+pattern EVar :: Name -> Expr
+pattern EVar n <- EVarX _ n
+  where EVar n = EVarX NoExtField n
+
+pattern ECon :: Name -> Expr
+pattern ECon n <- EConX _ n
+  where ECon n = EConX NoExtField n
+
+pattern EInt :: Integer -> Expr
+pattern EInt n <- EIntX _ n
+  where EInt n = EIntX NoExtField n
+
+pattern EBlock :: [Stmt String] -> Expr
+pattern EBlock stmts <- EBlockX _ stmts
+  where EBlock stmts = EBlockX NoExtField stmts
+
+pattern ETyped :: Expr -> Type -> Expr
+pattern ETyped e t <- ETypedX _ e t
+  where ETyped e t = ETypedX NoExtField e t
+
+pattern ECase :: Expr -> [CaseAlt] -> Expr
+pattern ECase e alts <- ECaseX _ e alts
+  where ECase e alts = ECaseX NoExtField e alts
 
 data Arg = UArg Name | TArg Name Type
 
