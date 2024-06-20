@@ -108,6 +108,17 @@ executable yule
     -- Base language which the package is written in.
     default-language: GHC2021
 
+executable ttg
+    main-is:          Main.hs
+    other-modules:    Exp, Check, NameSupply, TCM, Unify
+    default-extensions:  TypeFamilies, DataKinds, PatternSynonyms, TypeSynonymInstances
+    -- other-extensions:
+    build-depends:    base ^>=4.16.4.0,
+                      mtl >= 2.2,
+                      containers >= 0.6,
+    hs-source-dirs:   ttg
+    default-language: GHC2021
+
 test-suite testprogs
     type:       exitcode-stdio-1.0
     main-is:          TestProgs.hs
