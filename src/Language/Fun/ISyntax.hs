@@ -3,10 +3,9 @@ module Language.Fun.ISyntax where
 import Data.List(union, intersect, nub, (\\), intercalate)
 import Language.Fun.Types
 import Language.Fun.Constraints(HasTypes(..))
+import Language.Fun.Phase
 
 type Name = String
-
-data Phase = UD | Parsed | Typed | Specialised
 
 data Expr
     = ELam [Arg] Expr        -- function \args -> expr
