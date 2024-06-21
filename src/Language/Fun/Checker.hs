@@ -68,7 +68,7 @@ tiExpr (EBlock stmts) = withLocalEnv (go stmts) where
     go (stmt:rest) = do -- tiStmt stmt >> go rest
       tiStmt stmt
       go rest
-    tiStmt :: ToStr ann => Stmt ann -> TCM ([Pred], Type)
+    tiStmt :: Stmt -> TCM ([Pred], Type)
     tiStmt (SExpr ann e) = do
       localEnv <- askTypes (freeVars e)
       warn [str ann, " ~> ", str e]

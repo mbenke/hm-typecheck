@@ -142,7 +142,7 @@ specName n ts = n ++ "$" ++ intercalate "_" (map str ts)
 -- or mangle, e.g. using $ and underscore:
 -- specName n ts = n ++ "$" ++ intercalate "_" (map str ts) ++ "$"
 
-specialiseStmt :: Stmt a -> Type -> TCM (Stmt a)
+specialiseStmt :: Stmt -> Type -> TCM Stmt
 specialiseStmt (SExpr a e) _ = do
   (ps, t) <- tiExpr e `wrapError` e
   e' <- specialiseExp e t

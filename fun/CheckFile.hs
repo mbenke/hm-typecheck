@@ -11,7 +11,6 @@ import ParFun   ( pProg, myLexer )
 import PrintFun ( printTree)
 import Desugar
 import Language.Fun.ISyntax
--- import Language.Fun.Checker
 import Language.Fun.Typecheck
 import Language.Fun.EmitCore
 import TCM

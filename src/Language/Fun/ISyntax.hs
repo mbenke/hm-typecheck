@@ -9,7 +9,8 @@ module Language.Fun.ISyntax
 , XInt, XBlock, XTyped, XCase, XExp
 , Arg(..), argName
 , CaseAltX(..), CaseAlt
-, Stmt(..)
+, Stmt, StmtX(.., SExpr, SAlloc, SInit)
+, XSExpr, XSAlloc, XSInit, XStmt
 , DeclX(..), Decl
 , BindX(..), Bind
 , ConAlt(..)
@@ -32,7 +33,7 @@ data ExpX x
     | EVarX  (XVar x) Name              -- variable
     | EConX (XCon x) Name              -- value constructor
     | EIntX (XInt x) Integer           -- integer literal
-    | EBlockX (XBlock x) [Stmt String]   -- desugared statements annotated with their source form
+    | EBlockX (XBlock x) [StmtX x]   -- desugared statements annotated with their source form
     | ETypedX (XTyped x) (ExpX x) Type
     | ECaseX (XCase x) (ExpX x) [CaseAlt]
     | ExpX (XExp x)
@@ -49,7 +50,7 @@ type family XTyped x
 type family XCase x
 type family XExp x
 
-type Expr = ExpX FunUD
+type Expr = ExpX FunDs
 
 type instance XLam FunUD = NoExtField
 type instance XLet FunUD = NoExtField
@@ -62,6 +63,18 @@ type instance XBlock FunUD = NoExtField
 type instance XTyped FunUD = NoExtField
 type instance XCase FunUD = NoExtField
 type instance XExp FunUD = DataConCantHappen
+
+type instance XLam FunDs = NoExtField
+type instance XLet FunDs = NoExtField
+type instance XApp FunDs = NoExtField
+type instance XVapp FunDs = NoExtField
+type instance XVar FunDs = NoExtField
+type instance XCon FunDs = NoExtField
+type instance XInt FunDs = NoExtField
+type instance XBlock FunDs = NoExtField
+type instance XTyped FunDs = NoExtField
+type instance XCase FunDs = NoExtField
+type instance XExp FunDs = DataConCantHappen
 
 pattern ELam :: [Arg] -> Expr -> Expr
 pattern ELam args e <- ELamX _ args e
@@ -91,7 +104,7 @@ pattern EInt :: Integer -> Expr
 pattern EInt n <- EIntX _ n
   where EInt n = EIntX NoExtField n
 
-pattern EBlock :: [Stmt String] -> Expr
+pattern EBlock :: [Stmt] -> Expr
 pattern EBlock stmts <- EBlockX _ stmts
   where EBlock stmts = EBlockX NoExtField stmts
 
@@ -107,14 +120,37 @@ data Arg = UArg Name | TArg Name Type
 
 -- case alternative: constructor name, bound variables, expression
 data CaseAltX x = CaseAlt Name [Arg] (ExpX x)
-type CaseAlt = CaseAltX FunUD
+type CaseAlt = CaseAltX FunDs
 -- deriving instance Show CaseAlt
 
-data Stmt ann             -- ann - annotation (e.g. stmt before desugar)
-    = SExpr ann Expr
+data StmtX x             -- ann - annotation (e.g. stmt before desugar)
+    = SExprX (XSExpr x) (ExpX x)
 --    | SAssign ann Expr Expr
-    | SAlloc ann Name Type
-    | SInit ann Name Expr
+    | SAllocX (XSAlloc x) Name Type
+    | SInitX (XSInit x) Name (ExpX x)
+    | StmtX (XStmt x)
+
+type family XSExpr x
+type family XSAlloc x
+type family XSInit x
+type family XStmt x
+
+type instance XSExpr FunUD = NoExtField
+type instance XSAlloc FunUD = NoExtField
+type instance XSInit FunUD = NoExtField
+type instance XStmt FunUD = DataConCantHappen
+
+type instance XSExpr FunDs = String
+type instance XSAlloc FunDs = String
+type instance XSInit FunDs = String
+type instance XStmt FunDs = DataConCantHappen
+
+type Stmt = StmtX FunDs
+pattern SExpr :: String -> ExpX FunDs -> Stmt
+pattern SExpr s e = SExprX s e
+pattern SAlloc :: XSAlloc x -> Name -> Type -> StmtX x
+pattern SAlloc s n t = SAllocX s n t
+pattern SInit s n e = SInitX s n e
 
 data DeclX x
     = TypeDecl Type [ConAlt]
@@ -125,7 +161,7 @@ data DeclX x
     | ClsDecl Pred [DeclX x]
     | Pragma String
   -- deriving (Show)
-type Decl = DeclX FunUD
+type Decl = DeclX FunDs
 instance Show Decl where show = showDecl
 
 data BindX x = Bind
@@ -133,7 +169,7 @@ data BindX x = Bind
   , bindArgs :: [Arg]
   , bindBody :: ExpX x
 }
-type Bind = BindX FunUD
+type Bind = BindX FunDs
 deriving  instance Show Bind
 
 data ConAlt = ConAlt Name [Type]
@@ -143,7 +179,7 @@ instance Show ConAlt where
     show (ConAlt n ts) = unwords [n, unwords (map show ts)]
 
 data ProgX x = Prog [DeclX x]
-type Prog = ProgX FunUD
+type Prog = ProgX FunDs
 
 
 instance Show Expr where
@@ -189,8 +225,8 @@ showExpr :: Expr -> String
 -- showExpr (EBlock stmts) = intercalate "; " (map showStmt stmts)
 showExpr e = show e
 
-instance Show (Stmt ann) where
-    show :: Stmt ann -> String
+instance Show Stmt where
+    show :: Stmt -> String
     show (SExpr _ e) = showExpr e
     show (SAlloc _ x t) = concat ["let ",  x, " : ", show t]
 
@@ -261,7 +297,7 @@ instance HasTypes Expr where
     ftv (ETyped e t) = ftv e ++ ftv t
     ftv (EBlock stmts) = ftv stmts
 
-instance HasTypes (Stmt ann) where
+instance HasTypes Stmt where
     apply s (SExpr ann e) = SExpr ann (apply s e)
     apply s (SAlloc ann n t) = SAlloc ann n (apply s t)
     ftv (SExpr _ e) = ftv e

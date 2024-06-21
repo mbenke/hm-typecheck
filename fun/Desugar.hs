@@ -56,7 +56,7 @@ instance Desugar C.Expr I.Expr where
 instance Desugar C.CaseAlt I.CaseAlt where
   desugar (C.CaseAlt i args e) = I.CaseAlt (desugar i) (map desugar args) (desugar e)
 
-instance Desugar C.Stmt (I.Stmt String) where
+instance Desugar C.Stmt I.Stmt where
   desugar stmt@(C.SExpr e)     = I.SExpr (printTree stmt) (desugarRhs e)
   desugar stmt@(C.SAlloc i t)  = I.SAlloc (printTree stmt) (desugar i) (desugar t)
   desugar stmt@(C.SInit i e)   = I.SInit (printTree stmt) (desugar i) (desugar e)

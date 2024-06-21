@@ -38,6 +38,12 @@ type TcDecl = DeclX FunTc
 type TcProg = ProgX FunTc
 type TcBind = BindX FunTc
 
+type TcStmt = StmtX FunTc
+type instance XSExpr FunTc = NoExtField
+type instance XSAlloc FunTc = NoExtField
+type instance XSInit FunTc = NoExtField
+type instance XStmt FunTc = DataConCantHappen
+
 instance HasTypes TcExpr where
   apply s (ELamX _ args e) = ELamX NoExtField args (apply s e)
   apply s (ELetX _ x e1 e2) = ELetX NoExtField x (apply s e1) (apply s e2)
@@ -96,6 +102,10 @@ instance Show TcExpr where
                                showString ( intercalate ";\n  " (map show alts)) .
                                showString "\n}"
 
+instance Show TcStmt where
+    show (SExprX _ e) = show e
+    show (SAllocX _ x t) = concat ["let ",  x, " : ", show t]
+
 showArg :: Arg -> String
 showArg (UArg s) = s
 showArg (TArg s t) = concat ["(",s,":",show t,")"]
@@ -114,10 +124,12 @@ instance Show TcDecl where
   show (Mutual ds) = "mutual {" ++ intercalate ";\n " (map show ds) ++ "}"
   show (Pragma prag) = "pragma " ++ prag
 
+
 tiExpr :: Expr -> TCM ([Pred], Type) -- FIXME: transitional
 tiExpr e = do
   (_, ps, t) <- tcExpr e
   pure (ps,t)
+
 
 instance Show TcProg where
   show (Prog  decls) = intercalate ";\n" (map show decls)
@@ -178,29 +190,32 @@ tcExpr (ETyped e t) = do
   tce1 <- withCurrentSubst tce
   return (tce1, ps, t1)
 
-tcExpr e@(EBlock stmts) = do --FIXME: TcStmts
-  withLocalEnv (go stmts) 
-  return (EBlockX mempty stmts, [], unitT) where 
+tcExpr e@(EBlock stmts) = do
+  (tcstmts, _, _) <- withLocalEnv (go stmts)
+  return (EBlockX mempty tcstmts, [], unitT) where
     unit = ([], unitT)
-    go [] = return unit
-    go [stmt] = tiStmt stmt
+    go [] = return ([], [], unitT)
+    go [stmt] = do
+      (tcs, ps, t) <- tcStmt stmt
+      return ([tcs], ps, t)
     go (stmt:rest) = do -- tiStmt stmt >> go rest
-      tiStmt stmt
+      tcStmt stmt
       go rest
-    tiStmt :: ToStr ann => Stmt ann -> TCM ([Pred], Type)
-    tiStmt (SExpr ann e) = do
+    tcStmt :: Stmt -> TCM (TcStmt, [Pred], Type)
+    tcStmt (SExpr ann e) = do
       localEnv <- askTypes (freeVars e)
       warn [str ann, " ~> ", str e]
-      (ps, t) <- tiExpr e `wrapError` e
+      (tce, ps, t) <- tcExpr e `wrapError` e
       Forall as (ps1 :=> t1) <- generalize (ps, t) `wrapError` e
       info [showSmallEnv localEnv, " |- ", str e, " : ", str $ ps1 :=> t1]
-      return unit
+      return (SExprX mempty tce, ps, t1)
 
-    tiStmt (SAlloc ann n t) = do
+    tcStmt (SAlloc ann n t) = do
       extEnv n (monotype $ stackT t)
       q <- askType n
       info ["alloc ", n, " : ", str t, " ~> ", n, " : ", str q]
-      return unit
+      return  (SAllocX mempty n t, [], t)
+
 
 tcExpr (ECase scrut alts) = do -- TODO unify scrutinised expr type with con target
   targetType <- TVar <$> tcmDeplete
@@ -233,7 +248,7 @@ tiAlt target alt@(CaseAlt con args e) = withLocalEnv do
   (qs :=> conType) <- freshInst conScheme
   (argTypes, conResultType) <- addConArgs conType args
   warn ["! tiAlt ", con, ":", str conType, " ", str argTypes]
-  (ps,t) <- tiExpr e
+  (tce, ps,t) <- tcExpr e
   unify target t `wrapError` alt
   withCurrentSubst (ps, conResultType)
 
@@ -294,8 +309,10 @@ generalize (ps0, t0) = do
   return scheme
 
 schemeOf :: Expr -> TCM Scheme
-schemeOf exp = wrapError ty exp where
-  ty = tiExpr exp >>= generalize
+schemeOf exp = wrapError scheme exp where
+  scheme = do
+    (tcexp, ps, t) <- tcExpr exp
+    generalize (ps,t)
 
 tiDecl decl = tcDecl decl >> return ()
 
@@ -304,7 +321,7 @@ tcDecl (ValDecl n qt) = do
   let tvs = ftv qt
   let s = Forall tvs qt
   extEnv n s
-  return (ValDecl n qt) 
+  return (ValDecl n qt)
 
 tcDecl d@(ValBind n as e) = do
   (Bind n' as' e') <- tcBindgroup1 d
@@ -313,7 +330,7 @@ tcDecl d@(ValBind n as e) = do
   addResolution n typ exp
   return (ValBind n as' e')
 tcDecl (Mutual ds) = do
-  tcbs <- tcBindgroup ds 
+  tcbs <- tcBindgroup ds
   return $  Mutual [ValBind n a e | Bind n a e <- tcbs ]
 
 -- check type declaration,such as `Option a = None |  Some a`
@@ -338,7 +355,7 @@ tcDecl decl@(ClsDecl pred@(InCls c as (TVar mainTVar)) methods) = do
   tcMethods <- forM methods tcMD
   let (methodNames, tcMethodDecls) = unzip tcMethods
   let classInfo = (className, methodNames)
-  modify (addClassInfo className (classArity, methodNames)) 
+  modify (addClassInfo className (classArity, methodNames))
   return (ClsDecl pred tcMethodDecls)
   where
     className = predName pred
@@ -387,7 +404,7 @@ tiInstance qp d = tcInstance qp d >> return ()
 
 tcInstance :: Qual Pred -> [Decl] -> TCM [TcDecl]
 tcInstance inst@(constraint :=> ihead@(InCls c as t)) methods = do
-  let 
+  let
     header :: Decl = InstDecl inst [] -- for error messages
   -- warn ["+ tiInstance ", str inst]
   ois <- getInsts c `wrapError` header
