@@ -252,17 +252,22 @@ tiBind b = snd <$> tcBind b
 
 tcBind :: Bind -> TCM (TcBind, ([Pred], Type))
 tcBind (Bind n args e) = withLocalEnv do
-  as <- addArgs args
+  argTypes <- addArgs args
   (tce0, ps0, t0) <- tcExpr e
-  let t1 = foldr (:->) t0 as
+  let t1 = foldr (:->) t0 argTypes
   -- Unify the inferred type with the assumed type variable
   assumed <- askType n
   (aq :=> at) <- freshInst assumed
   unify at t1
+  argTypes' <- withCurrentSubst argTypes
+  let typedArgs = zipWith addType args argTypes'
   (tce, ps :=> t) <- withCurrentSubst (tce0, ps0 :=> t1)
-  warn ["< tiBind ", n, " : ", str (ps :=> t)]
-  return (Bind n args tce, (ps, t))
-
+  warn ["< tiBind ", n, str typedArgs, " : ", str (ps :=> t)]
+  return (Bind n typedArgs tce, (ps, t))
+  where
+    addType :: Arg -> Type -> Arg
+    addType (UArg name) t = TArg name t
+    addType arg _ = arg
 
 tiArg :: Arg -> TCM (Name, Type)
 tiArg (UArg name) = do
@@ -306,7 +311,7 @@ tcDecl d@(ValBind n as e) = do
   Forall tvs (qs :=> typ) <- askType n
   let exp = formLambda as typ e
   addResolution n typ exp
-  return (ValBind n as e')
+  return (ValBind n as' e')
 tcDecl (Mutual ds) = do
   tcbs <- tcBindgroup ds 
   return $  Mutual [ValBind n a e | Bind n a e <- tcbs ]
