@@ -251,7 +251,7 @@ tcDecl (ValDecl n qt) = do
 tcDecl d@(ValBind n as e) = do
   (Bind n' as' e') <- tcBindgroup1 d
   Forall tvs (qs :=> typ) <- askType n
-  let exp = formLambda as typ e
+  let exp = formTcLambda as' typ e'
   addResolution n typ exp
   return (ValBind n as' e')
 tcDecl (Mutual ds) = do
@@ -394,12 +394,20 @@ tcInstance inst@(constraint :=> ihead@(InCls c as t)) methods = do
       (tce, iq, it) <- tcExpr exp
       warn ["< tiExpr ", str exp, " : ", str (iq:=>it)]
       match it expType `wrapError` exp
-      addResolution name expType exp
+      addResolution name expType tce
       return (Bind name args' tce)
 
 formLambda :: [Arg] -> Type -> Expr -> Expr
 formLambda [] typ body = body
 formLambda as typ body = ELam as body where
+  addTypes :: [Arg] -> Type -> [Arg]
+  addTypes [] t = []
+  addTypes (a:as) (t :-> u)  = TArg (argName a) t : addTypes as u
+  addTypes _ _ = error "formLambda: wrong number of arguments"
+
+formTcLambda :: [Arg] -> Type -> TcExpr -> TcExpr
+formTcLambda [] typ body = body
+formTcLambda as typ body = ELamX mempty as body where
   addTypes :: [Arg] -> Type -> [Arg]
   addTypes [] t = []
   addTypes (a:as) (t :-> u)  = TArg (argName a) t : addTypes as u
@@ -449,13 +457,13 @@ tcBindgroup binds = do
       return (Bind n as e:bs)
     scanDecls (d:ds) = throwError ("illegal declaration in mutual: " ++ show d)
 
-buildTLD :: [Decl] -> TCM TLDict
+buildTLD :: [TcDecl] -> TCM TLDict
 buildTLD decls = do
   tld <- foldM addTLD Map.empty decls
   modify (\st -> st { tcsTLD = tld })
   return tld
    where
-    addTLD :: TLDict -> Decl -> TCM TLDict
+    addTLD :: TLDict -> TcDecl -> TCM TLDict
     addTLD tld (ValBind name args body) = do
       scheme@(Forall tvs (ps :=> typ)) <- askType name
       let typedArgs = attachTypes args (argTypes typ)

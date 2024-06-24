@@ -29,10 +29,10 @@ type SpecTable = Table [Specialisation]
 type TLDict = Table TLDef
 type Arity = Int
 type Method = Name
-type TLDef = (Name, Scheme, [Arg], Expr)
-type Specialisation = (Name, Type, [Arg], Expr)
+type TLDef = (Name, Scheme, [Arg], TcExpr)
+type Specialisation = (Name, Type, [Arg], TcExpr)
 type ResolutionEnv = Map.Map Name [Resolution]
-type Resolution = (Type, Expr)
+type Resolution = (Type, TcExpr)
 
 data TcState = TcState {
  tcsLogEnabled :: Bool,
@@ -164,7 +164,7 @@ showREnv = unlines . map showRes . Map.toList where
     showRes :: (Name, [Resolution]) -> String
     showRes (n, res) = intercalate "\n"  (map showEntry res) where
       showEntry :: Resolution -> String
-      showEntry (t, e) = n ++ " : " ++ str t ++ " = " ++ showExpr e
+      showEntry (t, e) = n ++ " : " ++ str t ++ " = " ++ show e
 
 nameIsPrimitive n = isJust (Map.lookup n primEnv)
 
@@ -295,7 +295,7 @@ getConInfo name = do
   s <- askType name
   return (name, s)
 
-addSpecialisation :: Name -> Type -> [Arg] -> Expr -> TCM ()
+addSpecialisation :: Name -> Type -> [Arg] -> TcExpr -> TCM ()
 addSpecialisation name typ args body = do
   mspec <- lookupSpec name typ
   case mspec of
@@ -304,7 +304,7 @@ addSpecialisation name typ args body = do
       extSpec st = st { tcsSpec = addSpec (tcsSpec st)}
       addSpec = Map.insertWith (++) name [(name, typ, args, body)]
 
-addResolution :: Name -> Type -> Expr -> TCM ()
+addResolution :: Name -> Type -> TcExpr -> TCM ()
 addResolution name typ expr = modify ext where
     ext st = st { tcsREnv = Map.insertWith (++) name [(typ, expr)] (tcsREnv st) }
 
@@ -313,18 +313,18 @@ addResolution name typ expr = modify ext where
    and returns the first resolution that matches the type along with the substitution;
    since overlapping instances are forbidden, there can be at most one matching resolution
 -}
-lookupResolution :: Name -> Type -> TCM(Maybe (Expr, Subst))
-lookupResolution name typ = gets (Map.lookup name . tcsREnv) >>= findMatch typ where
-  findMatch :: Type -> Maybe [Resolution] -> TCM (Maybe (Expr, Subst))
-  findMatch typ (Just res) = firstMatch typ res
+lookupResolution :: Name -> Type -> TCM(Maybe (TcExpr, Type, Subst))
+lookupResolution name etyp = gets (Map.lookup name . tcsREnv) >>= findMatch etyp where
+  findMatch :: Type -> Maybe [Resolution] -> TCM (Maybe (TcExpr, Type, Subst))
+  findMatch etyp (Just res) = firstMatch etyp res
   findMatch _ Nothing = return Nothing
-  firstMatch :: Type -> [Resolution] -> TCM (Maybe (Expr, Subst))
-  firstMatch typ [] = return Nothing
-  firstMatch typ ((t,e):res)
-    | Right subst <- mgu t typ = do  -- TESTME: match is to weak for MPTC, but isn't mgu too strong?
-        warn ["! lookupRes: match found: ", str t, " ~ ", str typ, " => ", str subst]
-        return (Just (e, subst))
-    | otherwise = firstMatch typ res
+  firstMatch :: Type -> [Resolution] -> TCM (Maybe (TcExpr, Type, Subst))
+  firstMatch etyp [] = return Nothing
+  firstMatch etyp ((t,e):rest)
+    | Right subst <- mgu t etyp = do  -- TESTME: match is to weak for MPTC, but isn't mgu too strong?
+        warn ["! lookupRes: match found: ", str t, " ~ ", str etyp, " => ", str subst]
+        return (Just (e, t, subst))
+    | otherwise = firstMatch etyp rest
 
 runTcS t = runState t initState
 

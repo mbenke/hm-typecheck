@@ -12,7 +12,7 @@ import PrintFun ( printTree)
 import Desugar
 import Language.Fun.ISyntax
 import Language.Fun.Typecheck
-import Language.Fun.EmitCore
+-- import Language.Fun.EmitCore
 import TCM
 import Language.Fun.Specialise
 import Language.Core(Core)
@@ -73,8 +73,8 @@ vcheckProg = checkProg' True
 
 processProg :: Prog -> TCM (Maybe Core)
 processProg prog@(Prog decls) = do
-  tcp <- tcProg prog
-  tld <- buildTLD decls
+  tcp@(Prog tcdecls) <- tcProg prog
+  tld <- buildTLD tcdecls
   warn ["Typechecked program:"]
   warn [show tcp]
   warn ["---------------------------------"]
@@ -82,7 +82,8 @@ processProg prog@(Prog decls) = do
     Nothing -> return Nothing
     Just def -> do
       withLogging $ specialiseEntry entrypoint
-      Just <$> emitCore
+      -- Just <$> emitCore
+      return Nothing -- !!!
   where
     entrypoint = "main"
 

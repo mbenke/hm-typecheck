@@ -2,8 +2,9 @@ module Language.Fun.Specialise where
 import Control.Monad.Error.Class(throwError)
 import Data.List(intercalate)
 import TCM
-import Language.Fun.Checker
+-- import Language.Fun.Checker
 import Language.Fun.ISyntax
+import Language.Fun.Typecheck
 import Language.Fun.Constraints
 import Language.Fun.Types
 
@@ -21,7 +22,7 @@ specialiseEntry name = do
   addSpecialisation name typ args body'
   return ()
 
-specialiseBody :: [Arg] -> Expr -> Type -> TCM Expr
+specialiseBody :: [Arg] -> TcExpr -> Type -> TCM TcExpr
 specialiseBody args exp etyp = do
   env <- getEnv
   as <- addArgs args -- FIXME
@@ -35,16 +36,14 @@ resultType (ta :-> tr) (a:as) = resultType tr as
 resultType typ args = error (
   "resultType: wrong number of arguments; typ="++str typ++"++args="++str args)
 
-specialiseExp :: Expr -> Type -> TCM Expr
-specialiseExp e@(EInt i) etyp = pure e
-specialiseExp e@(EVar n) etyp = do
+specialiseExp :: TcExpr -> Type -> TCM TcExpr
+specialiseExp e@(EIntX _ i) etyp = pure e
+specialiseExp e@(EVarX typ n) etyp = do
   mres <- lookupResolution n etyp
   case mres of
-    Just (exp, subst) -> do
-              fscheme <- askType n
-              let (Forall _ (ps :=> typ)) = fscheme
-              let tvs = ftv typ
-              warn ["! specVar ", n, ":", str fscheme," @ ", str etyp,  " resolution: ", str (exp, subst)]
+    Just (exp, dtyp, subst) -> do
+              let tvs = ftv dtyp
+              warn ["! specVar ", n, ":", str typ," @ ", str etyp,  " resolution: ", str (exp, subst)]
               phi <- mgu typ etyp `wrapError` ("specialise "++n, typ, etyp)
               let subst' = subst <> phi
               let tvs' = apply subst' (map TVar tvs)
@@ -57,80 +56,84 @@ specialiseExp e@(EVar n) etyp = do
               -- addSpecialisation name' etyp args' body'
               -- for inlining version, just return the specialised body
               addSpecialisation name' etyp args' body'
-              return (EVar name')
+              return (EVarX etyp name')
     Nothing -> return e <* warn ["! specVar ", n, " to ", str etyp, " - NO res"]
-
-specialiseExp e@(ECon n) etyp = specialiseCon n etyp
-
-specialiseExp e@(EApp fun a) etyp = do
-  (aps, atyp0) <- tiExpr a `wrapError` a `wrapError` e
-  (fps, ftyp0) <- tiExpr fun `wrapError` fun `wrapError` e
-  reduceContext aps
-  reduceContext fps
-  atyp <- withCurrentSubst atyp0
-  ftyp <- withCurrentSubst ftyp0
-  subst <- getCurrentSubst
+specialiseExp e@(EConX typ n) etyp = specialiseCon n typ etyp
+specialiseExp e@(EAppX _ fun a) etyp = do
+  let atyp = typeOfTcExpr a
+  let ftyp = typeOfTcExpr fun
   warn [ "> specApp (", str e
        , ") fun = ", str fun," : ", str ftyp
-       , "; arg = ", str a, " : ", str (aps :=> atyp)
+       , "; arg = ", str a, " : ", str atyp
        , "; target: ", str etyp
-       -- , "subst: ", str subst
        ]
   phi <- mgu ftyp (atyp :-> etyp) `wrapError` ("specialise", e)
-  warn ["< mgu", str(ftyp, atyp :-> etyp), " = " , str phi]
+  -- warn ["< mgu", str (ftyp, atyp :-> etyp), " = " , str phi]
   let atyp' = apply phi atyp
   let ftyp' = apply phi ftyp
   a' <- specialiseExp (apply phi a) atyp'
   f' <- specialiseExp (apply phi fun) ftyp'
-  warn ["< specApp - fun = ",str (ETyped f' ftyp')," arg: ", str (ETyped a' atyp')]
-  return (EApp f' a')
+  warn ["< specApp - fun = ",str (ETypedX mempty f' ftyp')," arg: ", str (ETypedX mempty a' atyp')]
+  return (EAppX  mempty f' a')
 
-specialiseExp e@(ELam args body) etyp = withLocalEnv do
-  let args' = attachTypes args (argTypes etyp)
-  addArgs args'
-  body' <- specialiseExp body (resultType etyp args)
-  warn ["< specLam ", str e, " : ", str etyp, " ~>", str (ELam args' body')]
-  return (ELam args' body')
+specialiseExp e@(ELamX x args body) etyp = do
+  -- let args' = attachTypes args (argTypes etyp)
+  warn ["> specArgs ", str args, " : ", str etyp]
+  (args', rt, subst) <- specArgs args etyp
+  warn ["< specArgs ~> ", str subst]
+  body' <- specialiseExp (apply subst body) (resultType etyp args)
+  warn ["< specLam ", str e, " : ", str etyp, " ~>", str (ELamX x args body')]
+  return (ELamX x args' body')
+  where
+    specArgs [] t = pure ([], t, mempty)
+    specArgs args@(TArg name typ:as) (t :-> u) = do
+      subst1 <- mgu typ t `wrapError` ("specArgs "++name, args, t :-> u)
+      (as', rt, subst2) <- specArgs (apply subst1 as) (apply subst1 u)
+      return (TArg name (apply subst1 typ):as', rt, subst1 <> subst2)
+    specArgs _ t = error("specialiseExp: "++str t++" is not a function type")
 
-specialiseExp e@(ETyped e' t) etyp = do
+specialiseExp e@(ETypedX x e' t) etyp = do
   e'' <- specialiseExp e' etyp
-  return (ETyped e'' etyp)
+  return (ETypedX x e'' etyp)
 
-specialiseExp (EBlock stmts) etyp = withLocalEnv do
+specialiseExp (EBlockX x stmts) etyp = withLocalEnv do
   stmts' <- mapM (`specialiseStmt` etyp) stmts
-  return (EBlock stmts')
+  return (EBlockX x stmts')
 
-specialiseExp (ECase e alts) etyp = do
-  (_ps, styp) <- tiExpr e `wrapError` e
-  e' <- specialiseExp e styp
+specialiseExp (ECaseX rtyp e alts) etyp = do
+  -- (_ps, styp) <- tiExpr e `wrapError` e
+  let styp = typeOfTcExpr e
+  -- e' <- specialiseExp e styp
+  -- FIXME: typechecking alts may impose constraints on scrutinee e
   alts' <- mapM (\alt -> specialiseAlt alt styp etyp) alts
-  return (ETyped (ECase (ETyped e' styp) alts') etyp)
+  return (ECaseX etyp (ETypedX mempty e styp) alts')
 -- this should never happen, but just in case:
-specialiseExp e etyp = throwError("FAILED to specialise "++str e)
+specialiseExp e etyp = throwError ("FAILED to specialise "++str e)
 
-specialiseAlt :: CaseAlt -> Type -> Type -> TCM CaseAlt
-specialiseAlt (CaseAlt con as e) styp etyp = withLocalEnv do
-  warn ["> specAlt ", con, str as, " : ", str etyp]
-  conscheme <- askType con
+specialiseAlt :: TcCaseAlt -> Type -> Type -> TCM TcCaseAlt
+specialiseAlt (CaseAltX x con as e) styp etyp = withLocalEnv do
+  -- styp - scrutinee type; etyp - expected result type
+  warn ["> specAlt ", "(",con, str as," : ",str styp,")"," -> ", str e,":", str etyp]
+  conscheme <- askType con  -- FIXME: decorate case alts instead
   let (Forall _ (_ :=> contyp)) = conscheme
-  phi <- mgu (resultType contyp as) styp
+  phi <- mgu (resultType contyp as) styp `wrapError` ("specialiseAlt "++con, contyp, styp)
   let contyp' = apply phi contyp
   let ats = argTypes contyp'
   let as' = attachTypes as ats
   addArgs as'
-  e' <- specialiseExp e etyp
-  warn ["< specAlt ", str (CaseAlt con as' e')]
-  return (CaseAlt con as' e')
+  e' <- specialiseExp (apply phi e) etyp
+  warn ["< specAlt ", str (CaseAltX  x con as' e')]
+  return (CaseAltX x con as' e')
 
-specialiseCon :: Name -> Type -> TCM Expr
-specialiseCon f t = do
-  fscheme@(Forall tvs (fps :=> ftyp)) <- askType f
-  phi <- mgu ftyp t
+specialiseCon :: Name -> Type -> Type -> TCM TcExpr
+specialiseCon name ftyp etyp= do
+  let tvs = ftv ftyp
+  phi <- mgu ftyp etyp
   let tvs' = apply phi (map TVar tvs)
-  -- let f' = specName f tvs'
-  let f' = f -- FIXME: need better specialisation for data types
-  warn ["! specCon ",f," : ", str fscheme, " to ", f', " : ", str t]
-  return (ECon f')
+  -- let name' = specName name tvs'
+  let name' = name -- FIXME: need better specialisation for data types
+  warn ["! specCon ",name," : ", str ftyp, " to ", name', " : ", str etyp]
+  return (EConX etyp name')
 
 specName :: Name -> [Type] -> Name
 specName n [] = n
@@ -142,11 +145,11 @@ specName n ts = n ++ "$" ++ intercalate "_" (map str ts)
 -- or mangle, e.g. using $ and underscore:
 -- specName n ts = n ++ "$" ++ intercalate "_" (map str ts) ++ "$"
 
-specialiseStmt :: Stmt -> Type -> TCM Stmt
-specialiseStmt (SExpr a e) _ = do
-  (ps, t) <- tiExpr e `wrapError` e
+specialiseStmt :: TcStmt -> Type -> TCM TcStmt
+specialiseStmt (SExprX a e) _ = do
+  let t = typeOfTcExpr e
   e' <- specialiseExp e t
-  return (SExpr a e')
+  return (SExprX a e')
 specialiseStmt (SAlloc a x t) _ = do
     extEnv x (monotype $ stackT t)
     return (SAlloc a x t)
