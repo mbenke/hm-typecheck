@@ -15,6 +15,7 @@ import Common.NameSupply
 import TCM
 import Common.Debug
 import Language.Fun.Phase
+    ( absurd, DataConCantHappen, FunTc, NoExtField(..) )
 
 type instance XLam FunTc = NoExtField
 type instance XLet FunTc = NoExtField
@@ -25,7 +26,7 @@ type instance XCon FunTc = Type
 type instance XInt FunTc = NoExtField
 type instance XBlock FunTc = NoExtField
 type instance XTyped FunTc = NoExtField
-type instance XCase FunTc = NoExtField
+type instance XCase FunTc = Type
 type instance XExp FunTc = DataConCantHappen
 
 type TcExpr = ExpX FunTc
@@ -57,7 +58,7 @@ instance HasTypes TcExpr where
   apply s (EIntX _ n) = EIntX NoExtField n
   apply s (EBlockX _ stmts) = EBlockX NoExtField stmts
   apply s (ETypedX _ e t) = ETypedX NoExtField (apply s e) t
-  apply s (ECaseX _ e alts) = ECaseX NoExtField (apply s e) alts
+  apply s (ECaseX t e alts) = ECaseX (apply s t) (apply s e) alts
   apply s (ExpX a) = absurd a
   ftv (ELamX _ args e) = ftv e
   ftv (ELetX _ _ e1 e2) = ftv e1 `union` ftv e2
@@ -68,11 +69,11 @@ instance HasTypes TcExpr where
   ftv (EIntX _ _) = []
   ftv (EBlockX _ stmts) = []
   ftv (ETypedX _ e _) = ftv e
-  ftv (ECaseX _ e alts) = ftv e -- `union` foldr union [] (map ftv alts)
+  ftv (ECaseX t e alts) = ftv t `union` ftv e `union` foldr union [] (map ftv alts)
 
 instance HasTypes TcCaseAlt where
-  apply s (CaseAltX _ n args e) = CaseAltX NoExtField n args (apply s e)
-  ftv (CaseAltX _ _ args e) = ftv args `union` ftv e
+  apply s (CaseAltX x n args e) = CaseAltX x n args (apply s e)
+  ftv (CaseAltX x _ args e) = ftv args `union` ftv e
 
 instance Show TcExpr where
   showsPrec d (EIntX _ n) = showsPrec 10 n
@@ -105,7 +106,8 @@ instance Show TcExpr where
              shows e .
              showString " : " . shows t
          where typ_prec = 2
-  showsPrec d (ECaseX _ e alts) = showString "case " . showsPrec 0 e . showString " of {\n  " .
+  showsPrec d (ECaseX t e alts) = showString "case<" . shows t . showString "> " .
+                               shows e . showString " of {\n  " .
                                showString ( intercalate ";\n  " (map show alts)) .
                                showString "\n}"
 
@@ -233,7 +235,7 @@ tcExpr (ECase scrut alts) = do -- TODO unify scrutinised expr type with con targ
   (tcscrut, ps, scrutType) <- tcExpr scrut   -- scrutinisied expresion
   (tcalts, ps') <- tcAlts scrutType targetType alts
   resultType <- withCurrentSubst targetType
-  return (ECaseX mempty tcscrut tcalts, ps ++ ps', resultType)
+  return (ECaseX resultType tcscrut tcalts, ps ++ ps', resultType)
 
 tiAlts :: Type -> Type -> [CaseAlt] -> TCM [Pred]
 tiAlts scrut target alts = snd <$> tcAlts scrut target alts
@@ -324,6 +326,38 @@ schemeOf exp = wrapError scheme exp where
   scheme = do
     (tcexp, ps, t) <- tcExpr exp
     generalize (ps,t)
+
+-- The typechecked expression should be annotated enough
+-- so that we can easily extract its type
+typeOfTcExpr :: TcExpr -> Type
+typeOfTcExpr e = go e where
+  argType (TArg _ t) = t
+  argType (UArg _) = error "typeOfTcExpr: untyped argument" --FIXME: make this case really impossible
+  go (EIntX _ _) = TInt
+  go (EVarX t _) = t
+  go (EConX t _) = t
+  go (EAppX _ e1 e2) = case go e1 of
+    (_ :-> t2) -> t2
+    _ -> error("typeOfTcExpr: " ++ show e1 ++ " is not a function")
+  go (EVappX _ e es) = case go e of
+    (_ :-> t2) -> t2
+    _ -> error("typeOfTcExpr: " ++ show e ++ " is not a function")
+  go (ELamX _ args e) = foldr (:->) (go e) (map argType args)
+  go (ELetX _ _ e1 e2) = go e2
+  go (ETypedX _ _ t) = t
+  go (EBlockX _ stmts) = typeOfTcStmts stmts
+  go (ECaseX t _ _) = t
+  go (ExpX x) = absurd x
+
+typeOfTcStmts :: [TcStmt] -> Type
+typeOfTcStmts [stmt] = typeOfTcStmt stmt
+typeOfTcStmts (stmt:stmts) = typeOfTcStmts stmts
+typeOfTcStmts [] = TUnit
+
+typeOfTcStmt :: TcStmt -> Type
+typeOfTcStmt (SExprX _ e) = typeOfTcExpr e
+typeOfTcStmt (SAllocX _ _ t) = TUnit
+typeOfTcStmt (SInitX _ _ t) = TUnit
 
 tiDecl decl = tcDecl decl >> return ()
 
