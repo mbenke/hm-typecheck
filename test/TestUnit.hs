@@ -3,7 +3,7 @@ import Syntax
 import qualified Language.Fun.ISyntax as I
 import Language.Fun.Types
 import Desugar
-import Language.Fun.Checker(tiDecl, tiProg, tiExpr, generalize)
+import Language.Fun.Typecheck(tiDecl, tiProg, tiExpr, schemeOf)
 import TCM
 import Control.Exception
 import Control.Monad
@@ -40,12 +40,14 @@ run = do
 report :: ErrorCall -> IO ()
 report (ErrorCall s) = putStrLn ("ERR: " ++ s)
 
+{-
 schemeOf :: Expr -> TCM Scheme
 schemeOf expr = tiExpr (desugar expr) >>= generalize
+-}
 
 checkExpr :: Expr -> IO ()
 -- checkExpr exp = typeCheck (desugar exp)
-checkExpr exp = check schemeOf exp >> return ()
+checkExpr exp = check schemeOf (desugar exp) >> return ()
   {-
     do
   res <- try $ typeCheck exp
@@ -56,8 +58,8 @@ checkExpr exp = check schemeOf exp >> return ()
 checkDecl :: Decl -> IO TcState
 checkDecl = check  (tiDecl . desugar)
 
-check :: (Print e, Show t) => (e -> TCM t)-> e -> IO (TcState)
-check checker e = check' printTree checker e
+check :: (Show e, Show t) => (e -> TCM t)-> e -> IO (TcState)
+check checker e = check' show checker e
 
 check' :: (Show t) => (e->String) -> (e -> TCM t)-> e -> IO (TcState)
 check' toString checker e = do

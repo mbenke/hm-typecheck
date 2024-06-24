@@ -3,7 +3,7 @@ import Syntax
 import qualified Language.Fun.ISyntax as I
 import Language.Fun.Types
 import Desugar
-import Language.Fun.Checker( tiDecl, tiProg, schemeOf)
+import Language.Fun.Typecheck( tiDecl, tiProg, schemeOf)
 import TCM
 import Control.Exception
 import Control.Monad
