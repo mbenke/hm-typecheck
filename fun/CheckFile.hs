@@ -12,7 +12,7 @@ import PrintFun ( printTree)
 import Desugar
 import Language.Fun.ISyntax
 import Language.Fun.Typecheck
--- import Language.Fun.EmitCore
+import Language.Fun.EmitCore
 import TCM
 import Language.Fun.Specialise
 import Language.Core(Core)
@@ -82,8 +82,7 @@ processProg prog@(Prog decls) = do
     Nothing -> return Nothing
     Just def -> do
       withLogging $ specialiseEntry entrypoint
-      -- Just <$> emitCore
-      return Nothing -- !!!
+      Just <$> emitCore
   where
     entrypoint = "main"
 

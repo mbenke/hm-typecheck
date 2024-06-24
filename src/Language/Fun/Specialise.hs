@@ -43,11 +43,11 @@ specialiseExp e@(EVarX typ n) etyp = do
   case mres of
     Just (exp, dtyp, subst) -> do
               let tvs = ftv dtyp
-              warn ["! specVar ", n, ":", str typ," @ ", str etyp,  " resolution: ", str (exp, subst)]
+              -- warn ["! specVar ", n, ":", str typ," @ ", str etyp,  " resolution: ", str (exp, subst)]
               phi <- mgu typ etyp `wrapError` ("specialise "++n, typ, etyp)
               let subst' = subst <> phi
               let tvs' = apply subst' (map TVar tvs)
-              warn ["- specVar: tvs=", str tvs, " tvs'=", str tvs']
+              -- warn ["- specVar: tvs=", str tvs, " tvs'=", str tvs']
               let name' = specName n tvs'
               body' <- specialiseExp exp etyp
               warn ["< specExp ", str exp, " : ", str etyp, " ~>", str body']
@@ -58,7 +58,7 @@ specialiseExp e@(EVarX typ n) etyp = do
               addSpecialisation name' etyp args' body'
               return (EVarX etyp name')
     Nothing -> return e <* warn ["! specVar ", n, " to ", str etyp, " - NO res"]
-specialiseExp e@(EConX typ n) etyp = specialiseCon n typ etyp
+specialiseExp e@(EConX contyp n) etyp = specialiseCon n contyp etyp
 specialiseExp e@(EAppX _ fun a) etyp = do
   let atyp = typeOfTcExpr a
   let ftyp = typeOfTcExpr fun
@@ -101,10 +101,8 @@ specialiseExp (EBlockX x stmts) etyp = withLocalEnv do
   return (EBlockX x stmts')
 
 specialiseExp (ECaseX rtyp e alts) etyp = do
-  -- (_ps, styp) <- tiExpr e `wrapError` e
   let styp = typeOfTcExpr e
-  -- e' <- specialiseExp e styp
-  -- FIXME: typechecking alts may impose constraints on scrutinee e
+  -- NOTE: typechecking alts may impose constraints on scrutinee e
   alts' <- mapM (\alt -> specialiseAlt alt styp etyp) alts
   return (ECaseX etyp (ETypedX mempty e styp) alts')
 -- this should never happen, but just in case:
@@ -126,13 +124,13 @@ specialiseAlt (CaseAltX x con as e) styp etyp = withLocalEnv do
   return (CaseAltX x con as' e')
 
 specialiseCon :: Name -> Type -> Type -> TCM TcExpr
-specialiseCon name ftyp etyp= do
-  let tvs = ftv ftyp
-  phi <- mgu ftyp etyp
+specialiseCon name contyp etyp = do
+  let tvs = ftv contyp
+  phi <- mgu contyp etyp
   let tvs' = apply phi (map TVar tvs)
   -- let name' = specName name tvs'
   let name' = name -- FIXME: need better specialisation for data types
-  warn ["! specCon ",name," : ", str ftyp, " to ", name', " : ", str etyp]
+  warn ["! specCon ",name," : ", str contyp, " to ", name', " : ", str etyp]
   return (EConX etyp name')
 
 specName :: Name -> [Type] -> Name

@@ -346,3 +346,16 @@ runTCM = runTcS . runExceptT
 
 evalTCM :: TCM a -> Either String a
 evalTCM = fst. runTCM
+
+-- find type to which a given data constructor belongs
+lookupCon :: Name -> TypeTable -> (Name, [Name])
+lookupCon con tt = go (Map.toList tt) where
+    go [] = error ("lookupCon: unknown constructor "++str con)
+    go ((tname, (arity, cs)):ts) = if con `elem` cs then (tname, cs) else go ts
+
+lookupConSiblings :: Name -> TypeTable -> [Name]
+lookupConSiblings con tt = snd (lookupCon con tt)
+
+lookupConType con tt = go (Map.toList tt) where
+    go [] = error ("lookupConType: unknown constructor "++str con)
+    go ((tname, (arity, cs)):ts) = if con `elem` cs then tname else go ts

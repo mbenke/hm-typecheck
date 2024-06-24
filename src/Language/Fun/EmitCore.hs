@@ -9,7 +9,7 @@ import Control.Monad.State(gets)
 import Language.Fun.ISyntax(Name, ToStr(..), Expr(..), ExpX(..))
 import Language.Fun.ISyntax qualified as Fun
 import Language.Fun.Types qualified as Fun
-
+import Language.Fun.Typecheck(typeOfTcExpr)
 
 type VSubst = Map.Map Name Core.Expr
 emptyVSubst :: VSubst
@@ -17,22 +17,7 @@ emptyVSubst = Map.empty
 
 data  ECEnv = ECEnv { ecSubst :: VSubst, ecTT :: TypeTable}
 
--- find type to which a given data constructor belongs
-lookupCon :: Name -> TypeTable -> (Name, [Name])
-lookupCon con tt = go (Map.toList tt) where
-    go [] = error ("lookupCon: unknown constructor "++str con)
-    go ((tname, (arity, cs)):ts) = if con `elem` cs then (tname, cs) else go ts
 
-lookupConSiblings :: Name -> TypeTable -> [Name]
-lookupConSiblings con tt = snd (lookupCon con tt)
-
-
-conSiblings :: Name -> ECEnv -> [Name]
-conSiblings con env = lookupConSiblings con (ecTT env)
-
-lookupConType con tt = go (Map.toList tt) where
-    go [] = error ("lookupConType: unknown constructor "++str con)
-    go ((tname, (arity, cs)):ts) = if con `elem` cs then tname else go ts
 extendECEnv :: VSubst -> ECEnv -> ECEnv
 extendECEnv subst env = env { ecSubst = ecSubst env <> subst}
 
@@ -40,6 +25,9 @@ readConstructors :: Name -> ECEnv -> [Name]
 readConstructors name env = case Map.lookup name (ecTT env) of
     Just (arity, cs) -> cs
     _ -> error ("readConstructors: unknown type "++str name)
+
+conSiblings :: Name -> ECEnv -> [Name]
+conSiblings con env = lookupConSiblings con (ecTT env)
 
 emitCore :: TCM Core
 emitCore = do
@@ -65,28 +53,28 @@ emitSpec origName (name, typ, args, body) = do
 type ECReader a = ECEnv -> a
 type Translation a = ECReader([Core.Stmt], a)
 
-translateBody :: Fun.Expr -> TCM [Core.Stmt]
+translateBody :: Fun.TcExpr -> TCM [Core.Stmt]
 translateBody exp = do
     typeTable <- gets tcsTT
     let env = ECEnv emptyVSubst typeTable
     let (code, result) = translateExp exp env
     return (code ++ [Core.SReturn result])
 
-translateExp :: Fun.Expr -> Translation Core.Expr
-translateExp (Fun.EInt n) = pure ([], Core.EInt (fromInteger n))
-translateExp (Fun.EVar n) = do
+translateExp :: Fun.TcExpr -> Translation Core.Expr
+translateExp (Fun.TcInt n) = pure ([], Core.EInt (fromInteger n))
+translateExp (Fun.EVarX t n) = do
     replace <- reader (Map.lookup n . ecSubst)
     case replace of
         Just e -> pure ([], e)
         Nothing -> pure ([], Core.EVar n)
-translateExp e@(Fun.EApp f a) = do
+translateExp e@(Fun.EAppX _ f a) = do
     let (g, as) = unwindApp e
     case g of
-        Fun.EVar f -> translateExp (Fun.EVapp g as)
-        Fun.ECon c -> translateConApp c as
+        Fun.EVarX _ f -> translateExp (Fun.EVappX mempty g as)
+        Fun.EConX t c -> translateConApp c as
         _ -> error ("translateExp/EApp: not implemented for "++str e)
-translateExp (Fun.ECon c) = translateConApp c []
-translateExp (Fun.EVapp (Fun.EVar f) as) = do
+translateExp (Fun.EConX t c) = translateConApp c []
+translateExp (Fun.EVappX _ (Fun.EVarX t f) as) = do
     targs <- mapM translateExp as
     let (codes, coreArgs) = unzip targs
     let call = Core.ECall f coreArgs
@@ -107,29 +95,30 @@ Start with special case for product types - just transform to projections
 
 
 
-translateExp (ETyped (Fun.ECase (ETyped p styp) [alt]) rtyp) = do
+translateExp (Fun.ECaseX rtyp p [alt]) = do
     (pcode, pval) <- translateExp p
     (bcode, bval) <- translateOnlyAlt pval alt
     pure (pcode ++ bcode, bval)
 
-translateExp (ETyped (Fun.ECase (ETyped p typ) alts) rtyp) = do
+translateExp (Fun.ECaseX rtyp (ETypedX _ p styp) alts) = do
+    let styp = typeOfTcExpr p
     let coreResultType = translateType rtyp
     let allocResult = [Core.SAlloc "_caseresult" coreResultType]
     (pcode, pval) <- translateExp p
-    let typename = case typ of
+    let typename = case styp of
             Fun.TCon name _ -> name
-            _ -> error ("translateExp: case with non-constructor type "++str typ)
+            _ -> error ("translateExp: case with non-constructor type "++str styp)
     constructors <- readConstructors typename
     let noMatch c = [Core.SRevert ("no match for: "++c)]
     let defaultAltMap = Map.fromList [(c, noMatch c) | c <- constructors]
-    branches <- forM alts $ \alt@(Fun.CaseAlt con args body) -> do
+    branches <- forM alts $ \alt@(Fun.CaseAltX _ con args body) -> do
         (bcode, bval) <- translateAltInto "_caseresult" pval alt
         pure (con, bcode, bval)
     let altMap = foldr (\(c, bcode, bval) m -> Map.insert c bcode m) defaultAltMap branches
     let casecode = buildMatch pval altMap constructors
     pure (pcode ++ allocResult ++ casecode, Core.EVar "_caseresult")
-
-translateExp (Fun.ECase  p [alt]) = error "translateExp: case with untyped scrutinee"
+translateExp (Fun.ETypedX _ e t) = translateExp e
+-- translateExp (Fun.ECaseX rtyp p [alt]) = error "translateExp: case with untyped scrutinee"
 translateExp exp = error ("translateExp: not implemented for "++str exp)
 
 buildMatch :: Core.Expr -> Map.Map Name [Core.Stmt] -> [Name] -> [Core.Stmt]
@@ -141,8 +130,8 @@ buildMatch pval altMap cons = -- error("buildMatch: not implemented" ++ show alt
     alt n [stmt] = Core.Alt n stmt
     alt n stmts = Core.Alt n (Core.SBlock stmts)
 
-translateAltInto :: Name -> Core.Expr -> Fun.CaseAlt -> Translation Core.Expr
-translateAltInto name pval (Fun.CaseAlt con args body) = do
+translateAltInto :: Name -> Core.Expr -> Fun.TcCaseAlt -> Translation Core.Expr
+translateAltInto name pval (Fun.CaseAltX _ con args body) = do
     let pvars = translatePatArgs pval args
     let caseresult = Core.EVar name
     (code, val) <- local (extendECEnv pvars) $ translateExp body
@@ -150,18 +139,18 @@ translateAltInto name pval (Fun.CaseAlt con args body) = do
     pure (code ++ [assign], caseresult)
 
 -- if there's only one case alt (unpacking a product type), we can skip caseresult
-translateOnlyAlt :: Core.Expr -> Fun.CaseAlt -> Translation Core.Expr
-translateOnlyAlt pval (Fun.CaseAlt con args body) = do
+translateOnlyAlt :: Core.Expr -> Fun.TcCaseAlt -> Translation Core.Expr
+translateOnlyAlt pval (Fun.CaseAltX _ con args body) = do
     let pvars = translatePatArgs pval args
     local (extendECEnv pvars) $ translateExp body
 
-unwindApp :: Fun.Expr -> (Fun.Expr, [Fun.Expr])
+unwindApp :: Fun.TcExpr -> (Fun.TcExpr, [Fun.TcExpr])
 unwindApp e = go e [] where
-    go (Fun.EApp f a) as = go f (a:as)
+    go (Fun.EAppX _ f a) as = go f (a:as)
     go f as = (f, as)
 
-stripLambda :: Fun.Expr -> (Fun.Expr, [Fun.Arg])
-stripLambda (Fun.ELam args body) = let (b, as) = stripLambda body in (b, args ++ as)
+stripLambda :: Fun.TcExpr -> (Fun.TcExpr, [Fun.Arg])
+stripLambda (Fun.ELamX x args body) = let (b, as) = stripLambda body in (b, args ++ as)
 stripLambda e = (e, [])
 
 translateArg :: Fun.Arg -> Core.Arg
@@ -190,7 +179,7 @@ translateProductType :: [Fun.Type] -> Core.Type
 translateProductType [] = Core.TUnit
 translateProductType ts = foldr1 Core.TPair (map translateType ts)
 
-translateProduct :: [Fun.Expr] -> Translation Core.Expr
+translateProduct :: [Fun.TcExpr] -> Translation Core.Expr
 translateProduct [e] = translateExp e
 translateProduct (e:es) = do
     (code, coreE) <- translateExp e
@@ -198,7 +187,7 @@ translateProduct (e:es) = do
     pure (code ++ codes, Core.EPair coreE coreEs)
 translateProduct [] = pure ([], Core.EUnit)
 
-translateConApp :: Name -> [Fun.Expr] -> Translation Core.Expr
+translateConApp :: Name -> [Fun.TcExpr] -> Translation Core.Expr
 translateConApp c es = do
     (code, conArg) <- translateProduct es
     allCons <- reader (conSiblings c)
