@@ -44,6 +44,9 @@ type instance XSAlloc FunTc = NoExtField
 type instance XSInit FunTc = NoExtField
 type instance XStmt FunTc = DataConCantHappen
 
+type TcCaseAlt = CaseAltX FunTc
+type instance XCaseAlt FunTc = NoExtField
+
 instance HasTypes TcExpr where
   apply s (ELamX _ args e) = ELamX NoExtField args (apply s e)
   apply s (ELetX _ x e1 e2) = ELetX NoExtField x (apply s e1) (apply s e2)
@@ -66,6 +69,10 @@ instance HasTypes TcExpr where
   ftv (EBlockX _ stmts) = []
   ftv (ETypedX _ e _) = ftv e
   ftv (ECaseX _ e alts) = ftv e -- `union` foldr union [] (map ftv alts)
+
+instance HasTypes TcCaseAlt where
+  apply s (CaseAltX _ n args e) = CaseAltX NoExtField n args (apply s e)
+  ftv (CaseAltX _ _ args e) = ftv args `union` ftv e
 
 instance Show TcExpr where
   showsPrec d (EIntX _ n) = showsPrec 10 n
@@ -101,6 +108,10 @@ instance Show TcExpr where
   showsPrec d (ECaseX _ e alts) = showString "case " . showsPrec 0 e . showString " of {\n  " .
                                showString ( intercalate ";\n  " (map show alts)) .
                                showString "\n}"
+
+instance Show TcCaseAlt where
+  show (CaseAltX _ n args e) = unwords [n, showArgs args, "->", show e] where
+    showArgs = unwords . map showArg
 
 instance Show TcStmt where
     show (SExprX _ e) = show e
@@ -224,33 +235,33 @@ tcExpr (ECase scrut alts) = do -- TODO unify scrutinised expr type with con targ
   resultType <- withCurrentSubst targetType
   return (ECaseX mempty tcscrut tcalts, ps ++ ps', resultType)
 
-tcAlts :: Type -> Type -> [CaseAlt] -> TCM ([CaseAlt], [Pred])
-tcAlts scrut target alts = do
-  ps <- tiAlts scrut target alts
-  return (alts, ps)
+tiAlts :: Type -> Type -> [CaseAlt] -> TCM [Pred]
+tiAlts scrut target alts = snd <$> tcAlts scrut target alts
 
-tiAlts ::Type -> Type -> [CaseAlt] -> TCM [Pred]
-tiAlts scrut target [] = return []
-tiAlts scrut target (alt:alts) = do
-  warn ["> tiAlts, target : ", str target]
-  (ps, expected) <- tiAlt target alt
-  unify scrut expected `wrapError` alt
+tcAlts ::Type -> Type -> [CaseAlt] -> TCM ([TcCaseAlt], [Pred])
+tcAlts scrut target [] = return ([], [])
+tcAlts scrut target (alt:alts) = do
+  warn ["> tcAlts, target : ", str target]
+  (tcalt, ps, conResult) <- tcAlt target alt
+  unify scrut conResult `wrapError` alt
   target' <- withCurrentSubst target
   scrut' <- withCurrentSubst scrut
-  ps' <- tiAlts scrut' target' alts
-  return (ps ++ ps')
+  tcalt' <- withCurrentSubst tcalt
+  (tcalts, ps') <- tcAlts scrut' target' alts
+  tcalts' <- withCurrentSubst tcalts
+  return (tcalt':tcalts', ps ++ ps')
 
 
-tiAlt :: Type -> CaseAlt -> TCM ([Pred], Type)  -- result to be unified with scrutType
-tiAlt target alt@(CaseAlt con args e) = withLocalEnv do
-  warn ["> tiAlt ", str alt, " : ", str target]
+tcAlt :: Type -> CaseAlt -> TCM (TcCaseAlt, [Pred], Type) -- result to be unified with scrutType
+tcAlt target alt@(CaseAlt con args e) = withLocalEnv do
+  warn ["> tcAlt ", str alt, " : ", str target]
   conScheme <- askType con
   (qs :=> conType) <- freshInst conScheme
   (argTypes, conResultType) <- addConArgs conType args
-  warn ["! tiAlt ", con, ":", str conType, " ", str argTypes]
+  warn ["! tcAlt ", con, ":", str conType, " ", str argTypes]
   (tce, ps,t) <- tcExpr e
   unify target t `wrapError` alt
-  withCurrentSubst (ps, conResultType)
+  withCurrentSubst (CaseAltX mempty con args tce,ps, conResultType)
 
 addConArgs :: Type -> [Arg] -> TCM ([Type], Type)
 addConArgs conType [] = return ([], conType)

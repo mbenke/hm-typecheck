@@ -8,7 +8,7 @@ module Language.Fun.ISyntax
 , XLam, XLet, XApp, XVapp, XVar, XCon
 , XInt, XBlock, XTyped, XCase, XExp
 , Arg(..), argName
-, CaseAltX(..), CaseAlt
+, CaseAltX(.., CaseAlt), XCaseAlt, CaseAlt
 , Stmt, StmtX(.., SExpr, SAlloc, SInit)
 , XSExpr, XSAlloc, XSInit, XStmt
 , DeclX(..), Decl
@@ -35,7 +35,7 @@ data ExpX x
     | EIntX (XInt x) Integer           -- integer literal
     | EBlockX (XBlock x) [StmtX x]   -- desugared statements annotated with their source form
     | ETypedX (XTyped x) (ExpX x) Type
-    | ECaseX (XCase x) (ExpX x) [CaseAlt]
+    | ECaseX (XCase x) (ExpX x) [CaseAltX x]
     | ExpX (XExp x)
 
 type family XLam x
@@ -119,8 +119,18 @@ pattern ECase e alts <- ECaseX _ e alts
 data Arg = UArg Name | TArg Name Type
 
 -- case alternative: constructor name, bound variables, expression
-data CaseAltX x = CaseAlt Name [Arg] (ExpX x)
+type family XCaseAlt x
+
+data CaseAltX x = CaseAltX (XCaseAlt x) Name [Arg] (ExpX x)
 type CaseAlt = CaseAltX FunDs
+
+type instance XCaseAlt FunUD = NoExtField
+type instance XCaseAlt FunDs = NoExtField
+
+pattern CaseAlt :: Name -> [Arg] -> Expr -> CaseAlt
+pattern CaseAlt c args e <- CaseAltX _ c args e
+  where CaseAlt c args e = CaseAltX NoExtField c args e
+
 -- deriving instance Show CaseAlt
 
 data StmtX x             -- ann - annotation (e.g. stmt before desugar)
@@ -238,7 +248,7 @@ showArg (UArg s) = s
 showArg (TArg s t) = concat ["(",s,":",show t,")"]
 
 instance Show CaseAlt where
-    show (CaseAlt c args e) = concat [c, " ", unwords (map show args), " -> ", show e]
+    show (CaseAltX _ c args e) = concat [c, " ", unwords (map show args), " -> ", show e]
 
 
 showDecl (ValDecl n qt) = unwords [n, ":", show qt]

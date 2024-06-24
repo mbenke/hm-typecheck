@@ -49,6 +49,10 @@ instance (HasTypes a, HasTypes b) => HasTypes (a,b) where
   apply s (a,b) = (apply s a, apply s b)
   ftv (a,b) = ftv a `union` ftv b
 
+instance (HasTypes a, HasTypes b, HasTypes c) => HasTypes (a,b,c) where
+  apply s (a,b,c) = (apply s a, apply s b, apply s c)
+  ftv (a,b,c) = ftv a `union` ftv b `union` ftv c
+
 instance HasTypes t => HasTypes(Qual t) where
   apply s (ps :=> t) = apply s ps :=> apply s t
   ftv (ps :=> t) = ftv ps `union` ftv t
