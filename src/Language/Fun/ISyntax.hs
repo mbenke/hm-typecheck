@@ -2,19 +2,20 @@
 {-# LANGUAGE TypeFamilies, TypeSynonymInstances #-}
 
 module Language.Fun.ISyntax
-( Name, Expr
+( Name, Expr, TcExpr
 , ExpX( .., ELam, ELet, EApp, EVapp, EVar, ECon
-       , EInt, EBlock, ETyped, ECase)
+       , EInt, EBlock, ETyped, ECase
+       , TcInt, TcApp )
 , XLam, XLet, XApp, XVapp, XVar, XCon
 , XInt, XBlock, XTyped, XCase, XExp
 , Arg(..), argName
-, CaseAltX(.., CaseAlt), XCaseAlt, CaseAlt
-, Stmt, StmtX(.., SExpr, SAlloc, SInit)
+, CaseAltX(.., CaseAlt), XCaseAlt, CaseAlt, TcCaseAlt
+, Stmt, StmtX(.., SExpr, SAlloc, SInit), TcStmt
 , XSExpr, XSAlloc, XSInit, XStmt
-, DeclX(..), Decl
-, BindX(..), Bind
+, DeclX(..), Decl, TcDecl
+, BindX(..), Bind, TcBind
 , ConAlt(..)
-, ProgX(..), Prog
+, ProgX(..), Prog, TcProg
 , ToStr(..), HasTypes(..), HasFreeVars(..)
 , showExpr, showDecl
 ) where
@@ -22,6 +23,7 @@ import Data.List(union, intersect, nub, (\\), intercalate)
 import Language.Fun.Types
 import Language.Fun.Constraints(HasTypes(..))
 import Language.Fun.Phase
+    ( absurd, DataConCantHappen, FunTc, FunUD, NoExtField(..), FunDs )
 
 type Name = String
 
@@ -312,3 +314,127 @@ instance HasTypes Stmt where
     apply s (SAlloc ann n t) = SAlloc ann n (apply s t)
     ftv (SExpr _ e) = ftv e
     ftv (SAlloc _ n t) = ftv t
+
+-- Typechecked
+
+type instance XLam FunTc = NoExtField
+type instance XLet FunTc = NoExtField
+type instance XApp FunTc = NoExtField
+type instance XVapp FunTc = NoExtField
+type instance XVar FunTc = Type
+type instance XCon FunTc = Type
+type instance XInt FunTc = NoExtField
+type instance XBlock FunTc = NoExtField
+type instance XTyped FunTc = NoExtField
+type instance XCase FunTc = Type
+type instance XExp FunTc = DataConCantHappen
+
+type TcExpr = ExpX FunTc
+pattern TcInt :: Integer -> TcExpr
+pattern TcInt n = EIntX NoExtField n
+pattern TcApp :: TcExpr -> TcExpr -> TcExpr
+pattern TcApp e1 e2 = EAppX NoExtField e1 e2
+
+type TcDecl = DeclX FunTc
+type TcProg = ProgX FunTc
+type TcBind = BindX FunTc
+
+type TcStmt = StmtX FunTc
+type instance XSExpr FunTc = NoExtField
+type instance XSAlloc FunTc = NoExtField
+type instance XSInit FunTc = NoExtField
+type instance XStmt FunTc = DataConCantHappen
+
+type TcCaseAlt = CaseAltX FunTc
+type instance XCaseAlt FunTc = NoExtField
+
+instance HasTypes TcExpr where
+  apply s (ELamX _ args e) = ELamX NoExtField args (apply s e)
+  apply s (ELetX _ x e1 e2) = ELetX NoExtField x (apply s e1) (apply s e2)
+  apply s (EAppX _ e1 e2) = EAppX NoExtField (apply s e1) (apply s e2)
+  apply s (EVappX _ e es) = EVappX NoExtField (apply s e) (map (apply s) es)
+  apply s (EVarX t n) = EVarX (apply s t) n
+  apply s (EConX t n) = EConX (apply s t) n
+  apply s (EIntX _ n) = EIntX NoExtField n
+  apply s (EBlockX _ stmts) = EBlockX NoExtField stmts
+  apply s (ETypedX _ e t) = ETypedX NoExtField (apply s e) t
+  apply s (ECaseX t e alts) = ECaseX (apply s t) (apply s e) alts
+  apply s (ExpX a) = absurd a
+  ftv (ELamX _ args e) = ftv e
+  ftv (ELetX _ _ e1 e2) = ftv e1 `union` ftv e2
+  ftv (EAppX _ e1 e2) = ftv e1 `union` ftv e2
+  ftv (EVappX _ e es) = foldr union [] (map ftv (e:es))
+  ftv (EVarX t _) = ftv t
+  ftv (EConX t _) = ftv t
+  ftv (EIntX _ _) = []
+  ftv (EBlockX _ stmts) = []
+  ftv (ETypedX _ e _) = ftv e
+  ftv (ECaseX t e alts) = ftv t `union` ftv e `union` foldr union [] (map ftv alts)
+
+instance HasTypes TcCaseAlt where
+  apply s (CaseAltX x n args e) = CaseAltX x n args (apply s e)
+  ftv (CaseAltX x _ args e) = ftv args `union` ftv e
+
+instance Show TcExpr where
+  showsPrec d (EIntX _ n) = showsPrec 10 n
+  showsPrec d (EVarX t n) = showParen True $
+             showString n .showString ": " . shows t
+  showsPrec d (EConX t n) = showParen True $
+             showString n .showString ": " . shows t
+  showsPrec d (EAppX _ e1 e2) = showParen (d > ap_prec) $
+             showsPrec ap_prec e1   .
+             showString " "           .
+             showsPrec (ap_prec+1) e2
+         where ap_prec = 10
+
+  showsPrec d (ELamX _ args e) = showParen (d > lam_prec) $
+             showString "\\" . showArgs args . showString " -> " .
+             showsPrec lam_prec e
+         where
+           lam_prec = 1
+           showArgs = showString . unwords  . map showArg
+
+  showsPrec d (ELetX _ x e1 e2) = showParen (d > let_prec) $
+             showString "let " . showString x . showString "= " . showsPrec 0 e1 .
+             showsPrec let_prec e2
+         where let_prec = 2
+
+  showsPrec d (EBlockX _ stmts) = showString "{\n  " .
+                               showString ( intercalate ";\n  " (map show stmts)) .
+                               showString "\n}"
+  showsPrec d (ETypedX _ e t) = showParen (d > typ_prec) $
+             shows e .
+             showString " : " . shows t
+         where typ_prec = 2
+  showsPrec d (ECaseX t e alts) = showString "case<" . shows t . showString "> " .
+                               shows e . showString " of {\n  " .
+                               showString ( intercalate ";\n  " (map show alts)) .
+                               showString "\n}"
+
+instance Show TcCaseAlt where
+  show (CaseAltX _ n args e) = unwords [n, showArgs args, "->", show e] where
+    showArgs = unwords . map showArg
+
+instance Show TcStmt where
+    show (SExprX _ e) = show e
+    show (SAllocX _ x t) = concat ["let ",  x, " : ", show t]
+
+{-
+showArg :: Arg -> String
+showArg (UArg s) = s
+showArg (TArg s t) = concat ["(",s,":",show t,")"]
+-}
+
+instance Show TcDecl where
+  show :: TcDecl -> String
+  show (TypeDecl t alts) = unwords [show t, "=", salts]
+     where salts = intercalate " | " (map show alts)
+  show (ValDecl n qt) = unwords [n, ":", show qt]
+  show (ValBind n [] e) = unwords [n, "=", show e]
+  show (ValBind n as e) = unwords [n, sas, "=", show e] where
+    sas = unwords (map showArg as)
+  show (ClsDecl pred mdecls) = unwords ["class", show pred, "{",  showDecls mdecls, "}"] where
+    showDecls ds = intercalate "; " (map showDecl ds)
+  show (InstDecl pred mdecls) = unwords ["instance", show pred]
+  show (Mutual ds) = "mutual {" ++ intercalate ";\n " (map show ds) ++ "}"
+  show (Pragma prag) = "pragma " ++ prag
