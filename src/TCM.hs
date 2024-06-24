@@ -279,11 +279,11 @@ lookupSpec name typ = do
       | otherwise = find typ specs
 
 getTypeInfo :: Name -> TCM TypeInfo
-getTypeInfo name = do
-  mti <- gets (Map.lookup name . tcsTT)
-  case mti of
-    Just ti -> return ti
-    Nothing -> throwError $ "Unknown type constructor: " ++ name
+getTypeInfo name = lookupTypeInfo name >>= maybe report return where
+  report = throwError $ "Unknown type constructor: " ++ name
+
+lookupTypeInfo :: Name -> TCM (Maybe TypeInfo)
+lookupTypeInfo name = gets (Map.lookup name . tcsTT)
 
 getConstructorsFor :: Name -> TCM [ConInfo]
 getConstructorsFor name = do
