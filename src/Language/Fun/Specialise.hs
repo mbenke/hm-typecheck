@@ -62,27 +62,27 @@ specialiseExp e@(EConX contyp n) etyp = specialiseCon n contyp etyp
 specialiseExp e@(EAppX _ fun a) etyp = do
   let atyp = typeOfTcExpr a
   let ftyp = typeOfTcExpr fun
-  warn [ "> specApp (", str e
-       , ") fun = ", str fun," : ", str ftyp
-       , "; arg = ", str a, " : ", str atyp
-       , "; target: ", str etyp
-       ]
+  -- warn [ "> specApp (", str e
+  --      , ") fun = ", str fun," : ", str ftyp
+  --      , "; arg = ", str a, " : ", str atyp
+  --      , "; target: ", str etyp
+  --      ]
   phi <- mgu ftyp (atyp :-> etyp) `wrapError` ("specialise", e)
   -- warn ["< mgu", str (ftyp, atyp :-> etyp), " = " , str phi]
   let atyp' = apply phi atyp
   let ftyp' = apply phi ftyp
   a' <- specialiseExp (apply phi a) atyp'
   f' <- specialiseExp (apply phi fun) ftyp'
-  warn ["< specApp - fun = ",str (ETypedX mempty f' ftyp')," arg: ", str (ETypedX mempty a' atyp')]
+  -- warn ["< specApp - fun = ",str (ETypedX mempty f' ftyp')," arg: ", str (ETypedX mempty a' atyp')]
   return (EAppX  mempty f' a')
 
 specialiseExp e@(ELamX x args body) etyp = do
   -- let args' = attachTypes args (argTypes etyp)
-  warn ["> specArgs ", str args, " : ", str etyp]
+  -- warn ["> specArgs ", str args, " : ", str etyp]
   (args', rt, subst) <- specArgs args etyp
-  warn ["< specArgs ~> ", str subst]
+  -- warn ["< specArgs ~> ", str subst]
   body' <- specialiseExp (apply subst body) (resultType etyp args)
-  warn ["< specLam ", str e, " : ", str etyp, " ~>", str (ELamX x args body')]
+  -- warn ["< specLam ", str e, " : ", str etyp, " ~>", str (ELamX x args body')]
   return (ELamX x args' body')
   where
     specArgs [] t = pure ([], t, mempty)
@@ -124,14 +124,42 @@ specialiseAlt (CaseAltX x con as e) styp etyp = withLocalEnv do
   return (CaseAltX x con as' e')
 
 specialiseCon :: Name -> Type -> Type -> TCM TcExpr
-specialiseCon name contyp etyp = do
+specialiseCon name usetyp etyp = do
+  warn ["> specCon ", name, " : ", str usetyp, " -> ", str etyp]
+  conScheme@(Forall tvs (fps :=> contyp)) <- askType name
   let tvs = ftv contyp
   phi <- mgu contyp etyp
   let tvs' = apply phi (map TVar tvs)
-  -- let name' = specName name tvs'
-  let name' = name -- FIXME: need better specialisation for data types
-  warn ["! specCon ",name," : ", str contyp, " to ", name', " : ", str etyp]
+  let specConName = specName name tvs'
+  let (conArgTypes, conResultType) = unwindType contyp
+  specConScheme <- maybeAskType specConName
+  sctyp <- case specConScheme of
+    Just (Forall [] ([] :=> t)) -> pure t
+    Just scheme -> error ("specialised type "++ str scheme ++" of"++str specConName++" is not monomorphic")
+    Nothing -> specialiseTycon conResultType tvs'
+  let name' = specConName -- FIXME: need better specialisation for data types
+  warn ["< specCon ",name," : ", str contyp, " to ", name', " : ", str etyp]
   return (EConX etyp name')
+
+specialiseTycon :: Type -> [Type] -> TCM Type
+specialiseTycon (TCon name ts) stypes = do
+  warn ["! specConType ", name, " @ ", str stypes]
+  let newName = specName name stypes
+  let newDType = TCon newName []
+  conInfos <- getConstructorsFor name
+  newCons <- mapM (specialiseConDecl newDType) conInfos
+  let newTI = (0, newCons)
+  addTypeInfoM newName newTI
+  return newDType
+  where
+    specialiseConDecl :: Type -> ConInfo -> TCM Name
+    specialiseConDecl newDType (name, Forall tvs ( _ :=> conType)) = do
+      let newName = specName name stypes
+      let subst = Subst $ zip tvs stypes
+      let newConType = apply subst conType
+      extEnv newName (monotype newConType)
+      warn ["! specConDecl ", name, " @ ", str stypes, " ~> ", newName, " : ", str newDType]
+      return newName
 
 specName :: Name -> [Type] -> Name
 specName n [] = n

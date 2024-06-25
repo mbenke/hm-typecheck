@@ -79,6 +79,10 @@ argTypes :: Type -> [Type]
 argTypes (a :-> b) = a : argTypes b
 argTypes _ = []
 
+unwindType :: Type -> ([Type], Type)
+unwindType (a :-> b) = let (as, r) = unwindType b in (a:as, r)
+unwindType t = ([], t)
+
 typeOfScheme :: Scheme -> Maybe Type
 typeOfScheme (Forall [] ([] :=> t)) = Just t
 typeOfScheme _ = Nothing

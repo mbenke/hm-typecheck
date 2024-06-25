@@ -254,6 +254,9 @@ addTypeInfo :: Name -> TypeInfo -> TcState -> TcState
 addTypeInfo name typeInfo state = state { tcsTT = ext (tcsTT state) } where
   ext = Map.insert name typeInfo
 
+addTypeInfoM :: Name -> TypeInfo -> TCM ()  -- FIXME: needs better name
+addTypeInfoM name typeInfo = modify (addTypeInfo name typeInfo)
+
 addClassInfo :: Name -> ClassInfo -> TcState -> TcState
 addClassInfo n ci st = st { tcsCT = extCT (tcsCT st), tcsIT = extIT (tcsIT st) } where
     extCT = Map.insert n ci
@@ -356,6 +359,7 @@ lookupCon con tt = go (Map.toList tt) where
 lookupConSiblings :: Name -> TypeTable -> [Name]
 lookupConSiblings con tt = snd (lookupCon con tt)
 
+lookupConType :: Name -> TypeTable -> Name
 lookupConType con tt = go (Map.toList tt) where
     go [] = error ("lookupConType: unknown constructor "++str con)
     go ((tname, (arity, cs)):ts) = if con `elem` cs then tname else go ts
