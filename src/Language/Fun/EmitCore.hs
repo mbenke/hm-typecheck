@@ -6,10 +6,9 @@ import Data.Map qualified as Map
 import Control.Monad(forM)
 import Control.Monad.Reader.Class
 import Control.Monad.State(gets)
-import Language.Fun.ISyntax(Name, ToStr(..), Expr(..), ExpX(..))
+import Language.Fun.ISyntax(Name, ToStr(..), Expr(..), ExpX(..), typeOfTcExpr)
 import Language.Fun.ISyntax qualified as Fun
 import Language.Fun.Types qualified as Fun
-import Language.Fun.Typecheck(typeOfTcExpr)
 
 type VSubst = Map.Map Name Core.Expr
 emptyVSubst :: VSubst

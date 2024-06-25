@@ -207,37 +207,6 @@ schemeOf exp = wrapError scheme exp where
     (tcexp, ps, t) <- tcExpr exp
     generalize (ps,t)
 
--- The typechecked expression should be annotated enough
--- so that we can easily extract its type
-typeOfTcExpr :: TcExpr -> Type
-typeOfTcExpr e = go e where
-  argType (TArg _ t) = t
-  argType (UArg _) = error "typeOfTcExpr: untyped argument" --FIXME: make this case really impossible
-  go (EIntX _ _) = TInt
-  go (EVarX t _) = t
-  go (EConX t _) = t
-  go (EAppX _ e1 e2) = case go e1 of
-    (_ :-> t2) -> t2
-    _ -> error("typeOfTcExpr: " ++ show e1 ++ " is not a function")
-  go (EVappX _ e es) = case go e of
-    (_ :-> t2) -> t2
-    _ -> error("typeOfTcExpr: " ++ show e ++ " is not a function")
-  go (ELamX _ args e) = foldr (:->) (go e) (map argType args)
-  go (ELetX _ _ e1 e2) = go e2
-  go (ETypedX _ _ t) = t
-  go (EBlockX _ stmts) = typeOfTcStmts stmts
-  go (ECaseX t _ _) = t
-  go (ExpX x) = absurd x
-
-typeOfTcStmts :: [TcStmt] -> Type
-typeOfTcStmts [stmt] = typeOfTcStmt stmt
-typeOfTcStmts (stmt:stmts) = typeOfTcStmts stmts
-typeOfTcStmts [] = TUnit
-
-typeOfTcStmt :: TcStmt -> Type
-typeOfTcStmt (SExprX _ e) = typeOfTcExpr e
-typeOfTcStmt (SAllocX _ _ t) = TUnit
-typeOfTcStmt (SInitX _ _ t) = TUnit
 
 tiDecl decl = tcDecl decl >> return ()
 
