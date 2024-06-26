@@ -44,7 +44,8 @@ emitSpec origName (name, typ, args, body) = do
     -- warn ["> emitSpec ", name, " : ", str typ]
     -- warn ["! emitSpec: allArgs=", str allArgs]
     -- warn ["! emitSpec: lambody=", str lambody]
-    let coreArgs = map translateArg allArgs
+    typeTable <- getTypeTable
+    let coreArgs = map (translateArg typeTable) allArgs
     coreBody <- translateBody lambody
     return (Core.SFunction name coreArgs Core.TInt coreBody)
 
@@ -101,7 +102,8 @@ translateExp (Fun.ECaseX rtyp p [alt]) = do
 
 translateExp (Fun.ECaseX rtyp (ETypedX _ p styp) alts) = do
     let styp = typeOfTcExpr p
-    let coreResultType = translateType rtyp
+    typeTable <- reader ecTT
+    let coreResultType = translateType typeTable rtyp
     let allocResult = [Core.SAlloc "_caseresult" coreResultType]
     (pcode, pval) <- translateExp p
     let typename = case styp of
@@ -152,15 +154,15 @@ stripLambda :: Fun.TcExpr -> (Fun.TcExpr, [Fun.Arg])
 stripLambda (Fun.ELamX x args body) = let (b, as) = stripLambda body in (b, args ++ as)
 stripLambda e = (e, [])
 
-translateArg :: Fun.Arg -> Core.Arg
-translateArg (Fun.TArg n t) = Core.TArg n (translateType t)
-translateArg (Fun.UArg n) = error("translateArg: UArg "++n)
+translateArg :: TypeTable -> Fun.Arg -> Core.Arg
+translateArg tt (Fun.TArg n t) = Core.TArg n (translateType tt t)
+translateArg _ (Fun.UArg n) = error("translateArg: UArg "++n)
 
-translateType :: Fun.Type -> Core.Type
-translateType Fun.TInt = Core.TInt
-translateType Fun.TBool = Core.TBool
-translateType Fun.TUnit = Core.TUnit
-translateType (Fun.TCon name tas) = translateTCon name tas
+translateType :: TypeTable -> Fun.Type -> Core.Type
+translateType _ Fun.TInt = Core.TInt
+translateType _ Fun.TBool = Core.TBool
+translateType _ Fun.TUnit = Core.TUnit
+translateType tt (Fun.TCon name tas) = translateTCon tt name tas
 
 -- translate (monomorphic) datatypes to sums of products
 -- constructors are translated to inr/inl chains
@@ -169,14 +171,14 @@ translateType (Fun.TCon name tas) = translateTCon name tas
 -- NB no inr/inl with one constructor, e.g.
 -- type Pair a b = Pair a b; Pair -> 0/0
 
-translateTCon :: Name -> [Fun.Type] -> Core.Type
-translateTCon tycon tas = do
+translateTCon :: TypeTable -> Name -> [Fun.Type] -> Core.Type
+translateTCon tt tycon tas =
     -- allCons <- readConstructors tycon
-    translateProductType tas
+    translateProductType tt tas
 
-translateProductType :: [Fun.Type] -> Core.Type
-translateProductType [] = Core.TUnit
-translateProductType ts = foldr1 Core.TPair (map translateType ts)
+translateProductType :: TypeTable -> [Fun.Type] -> Core.Type
+translateProductType _ [] = Core.TUnit
+translateProductType tt ts = foldr1 Core.TPair (map (translateType tt) ts)
 
 translateProduct :: [Fun.TcExpr] -> Translation Core.Expr
 translateProduct [e] = translateExp e

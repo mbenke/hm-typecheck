@@ -350,6 +350,9 @@ runTCM = runTcS . runExceptT
 evalTCM :: TCM a -> Either String a
 evalTCM = fst. runTCM
 
+getTypeTable :: TCM TypeTable
+getTypeTable = gets tcsTT
+
 -- find type to which a given data constructor belongs
 lookupCon :: Name -> TypeTable -> (Name, [Name])
 lookupCon con tt = go (Map.toList tt) where
