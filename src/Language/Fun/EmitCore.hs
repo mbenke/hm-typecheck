@@ -176,8 +176,20 @@ translateType tt (Fun.TCon name tas) = translateTCon tt name tas
 
 translateTCon :: TypeTable -> Name -> [Fun.Type] -> Core.Type
 translateTCon tt tycon tas =
-    -- allCons <- readConstructors tycon
-    translateProductType tt tas
+      buildSumType (map (translateDCon tt) cons)
+    where
+      cons = case Map.lookup tycon tt of
+        Just (arity, cs) -> cs
+        _ -> error ("translateTCon: unknown type "++str tycon)
+      buildSumType [] = Core.TUnit
+      buildSumType ts = foldr1 Core.TSum ts
+
+
+translateDCon :: TypeTable -> ConInfo -> Core.Type
+translateDCon tt (name, Fun.Forall [] ([] Fun.:=> typ)) =
+    translateProductType tt tas where (tas, tr) = Fun.unwindType typ
+translateDCon tt (name,s) = error("translateDCon: "++str name++":"++str s
+                            ++"is not a monomorphic constructor")
 
 translateProductType :: TypeTable -> [Fun.Type] -> Core.Type
 translateProductType _ [] = Core.TUnit
