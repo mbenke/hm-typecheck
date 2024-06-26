@@ -46,13 +46,15 @@ primVals =
   memo x = TCon "Memory" [x]
   pair x y = TCon "Pair" [x, y]
 
-primTypes :: [(Name, (Int, [String]))]
+primTypes :: [(Name, (Int, [(String, Scheme)]))]
 primTypes =
   [ ("Int", (0, []))
-  , ("Unit", (0, ["Unit"]))
-  , ("Bool", (0, ["False", "True"]))
+  , ("Unit", (0, [("Unit", unit)]))
+  , ("Bool", (0, [("False",tbool), ("True",tbool)]))
   , ("->",  (2, []))
-  , ("List", (1, ["Nil", "Cons"]))
+  , ("List", (1,
+     [ ("Nil", forAll "a" (list a))
+     , ("Cons", forAll "a" (a :-> list a :-> list a))]))
 --  , ("Maybe", (1, ["Nothing", "Just"]))
 --   , ("Either", 2)
 {-
@@ -61,7 +63,13 @@ primTypes =
   , ("Stack", 1)
   , ("SI", 0)
 -}
-  ]
+  ] where
+    a = TVar "a"
+    b = TVar "b"
+    unit = monotype $ TCon "Unit" []
+    tbool = monotype bool
+    list x = TCon "List" [x]
+    pair x y = TCon "Pair" [x, y]
 
 type ClassInfo = (Int, [String])
 

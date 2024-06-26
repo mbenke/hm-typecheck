@@ -20,12 +20,12 @@ data  ECEnv = ECEnv { ecSubst :: VSubst, ecTT :: TypeTable}
 extendECEnv :: VSubst -> ECEnv -> ECEnv
 extendECEnv subst env = env { ecSubst = ecSubst env <> subst}
 
-readConstructors :: Name -> ECEnv -> [Name]
+readConstructors :: Name -> ECEnv -> [ConInfo]
 readConstructors name env = case Map.lookup name (ecTT env) of
     Just (arity, cs) -> cs
     _ -> error ("readConstructors: unknown type "++str name)
 
-conSiblings :: Name -> ECEnv -> [Name]
+conSiblings :: Name -> ECEnv -> [ConInfo]
 conSiblings con env = lookupConSiblings con (ecTT env)
 
 emitCore :: TCM Core
@@ -110,8 +110,9 @@ translateExp (Fun.ECaseX rtyp (ETypedX _ p styp) alts) = do
             Fun.TCon name _ -> name
             _ -> error ("translateExp: case with non-constructor type "++str styp)
     constructors <- readConstructors typename
+    let conNames = map fst constructors
     let noMatch c = [Core.SRevert ("no match for: "++c)]
-    let defaultAltMap = Map.fromList [(c, noMatch c) | c <- constructors]
+    let defaultAltMap = Map.fromList [(c, noMatch c) | c <- conNames]
     branches <- forM alts $ \alt@(Fun.CaseAltX _ con args body) -> do
         (bcode, bval) <- translateAltInto "_caseresult" pval alt
         pure (con, bcode, bval)
@@ -122,12 +123,14 @@ translateExp (Fun.ETypedX _ e t) = translateExp e
 -- translateExp (Fun.ECaseX rtyp p [alt]) = error "translateExp: case with untyped scrutinee"
 translateExp exp = error ("translateExp: not implemented for "++str exp)
 
-buildMatch :: Core.Expr -> Map.Map Name [Core.Stmt] -> [Name] -> [Core.Stmt]
+buildMatch :: Core.Expr -> Map.Map Name [Core.Stmt] -> [ConInfo] -> [Core.Stmt]
 buildMatch pval altMap cons = -- error("buildMatch: not implemented" ++ show altMap)
   go cons where
-    go :: [Name] -> [Core.Stmt]
-    go [con] = altMap Map.! con
-    go (con:cons) = [Core.SMatch pval [alt "left" (altMap Map.! con), alt "right" (go cons)]]
+    go :: [ConInfo] -> [Core.Stmt]
+    go [(name, s)] = altMap Map.! name
+    go ((name, s):cons) =
+        [Core.SMatch pval [ alt "left" (altMap Map.! name)
+                          , alt "right" (go cons)]]
     alt n [stmt] = Core.Alt n stmt
     alt n stmts = Core.Alt n (Core.SBlock stmts)
 
@@ -194,12 +197,12 @@ translateConApp c es = do
     allCons <- reader (conSiblings c)
     pure (code, encodeCon c allCons conArg)
 
-encodeCon :: Name -> [Name] ->  Core.Expr -> Core.Expr
+encodeCon :: Name -> [ConInfo] ->  Core.Expr -> Core.Expr
 encodeCon c [con] e
-  | c == con = e
+  | c == fst con = e
   | otherwise = error ("encodeCon: constructor "++str c ++ "not found")
 encodeCon c (con:cons) e
-  | c == con = Core.EInl e'
+  | c == fst con = Core.EInl e'
   | otherwise = Core.EInr e'
   where e' = encodeCon c cons e
 

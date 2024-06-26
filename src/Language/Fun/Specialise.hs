@@ -152,14 +152,14 @@ specialiseTycon (TCon name ts) stypes = do
   addTypeInfoM newName newTI
   return newDType
   where
-    specialiseConDecl :: Type -> ConInfo -> TCM Name
+    specialiseConDecl :: Type -> ConInfo -> TCM ConInfo
     specialiseConDecl newDType (name, Forall tvs ( _ :=> conType)) = do
       let newName = specName name stypes
       let subst = Subst $ zip tvs stypes
       let newConType = apply subst conType
       extEnv newName (monotype newConType)
       warn ["! specConDecl ", name, " @ ", str stypes, " ~> ", newName, " : ", str newDType]
-      return newName
+      return (newName, monotype newConType)
 
 specName :: Name -> [Type] -> Name
 specName n [] = n

@@ -231,9 +231,8 @@ tcDecl (Mutual ds) = do
 tcDecl decl@(TypeDecl typ@(TCon name args) alts) = do
   constructors <- tiConAlts typ alts
   forM_ constructors addCon
-  let consNames = map fst constructors
   let arity = length args
-  let typeInfo = (arity, consNames)
+  let typeInfo = (arity, constructors)
   modify (addTypeInfo name typeInfo)
   return (TypeDecl typ alts)
   where

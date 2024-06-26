@@ -19,7 +19,7 @@ type Table a = Map.Map Name a
 type Env = Table Scheme            -- Environment maps names to type schemes
 
 type TypeTable = Table TypeInfo    -- TypeTable maps type constructor names to
-type TypeInfo = (Arity, [Name])    -- arity and constructor names
+type TypeInfo = (Arity, [ConInfo])    -- arity and constructor names
 type ConInfo = (Name, Scheme)      -- constructor name and type scheme
 
 type ClassTable = Table ClassInfo
@@ -290,8 +290,8 @@ lookupTypeInfo name = gets (Map.lookup name . tcsTT)
 
 getConstructorsFor :: Name -> TCM [ConInfo]
 getConstructorsFor name = do
-  (arity, cons::[Name]) <- getTypeInfo name
-  forM cons getConInfo
+  (arity, cons) <- getTypeInfo name
+  pure cons
 
 getConInfo :: Name -> TCM ConInfo
 getConInfo name = do
@@ -354,15 +354,15 @@ getTypeTable :: TCM TypeTable
 getTypeTable = gets tcsTT
 
 -- find type to which a given data constructor belongs
-lookupCon :: Name -> TypeTable -> (Name, [Name])
+lookupCon :: Name -> TypeTable -> (Name, [ConInfo])
 lookupCon con tt = go (Map.toList tt) where
     go [] = error ("lookupCon: unknown constructor "++str con)
-    go ((tname, (arity, cs)):ts) = if con `elem` cs then (tname, cs) else go ts
+    go ((tname, (arity, cis)):ts) =
+      if con `elemByFst` cis then (tname, cis) else go ts
+    elemByFst x ys = any ((==x).fst) ys
 
-lookupConSiblings :: Name -> TypeTable -> [Name]
+lookupConSiblings :: Name -> TypeTable -> [ConInfo]
 lookupConSiblings con tt = snd (lookupCon con tt)
 
 lookupConType :: Name -> TypeTable -> Name
-lookupConType con tt = go (Map.toList tt) where
-    go [] = error ("lookupConType: unknown constructor "++str con)
-    go ((tname, (arity, cs)):ts) = if con `elem` cs then tname else go ts
+lookupConType con tt = fst (lookupCon con tt)
