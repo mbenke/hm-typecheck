@@ -7,6 +7,15 @@ import Language.Fun.ISyntax
 import Language.Fun.Typecheck
 import Language.Fun.Constraints
 import Language.Fun.Types
+    ( pattern (:->),
+      argTypes,
+      monotype,
+      stackT,
+      typeOfScheme,
+      Qual((:=>)),
+      Scheme(Forall),
+      Type(..),
+      unwindType )
 
 specialiseEntry :: Name -> TCM ()
 specialiseEntry name = do
@@ -125,7 +134,7 @@ specialiseAlt (CaseAltX x con as e) styp etyp = withLocalEnv do
 
 specialiseCon :: Name -> Type -> Type -> TCM TcExpr
 specialiseCon name usetyp etyp = do
-  warn ["> specCon ", name, " : ", str usetyp, " -> ", str etyp]
+  warn ["> specCon ", name, " : ", str usetyp, " @ ", str etyp]
   conScheme@(Forall tvs (fps :=> contyp)) <- askType name
   let tvs = ftv contyp
   phi <- mgu contyp etyp

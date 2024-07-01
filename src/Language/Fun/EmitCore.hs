@@ -9,6 +9,8 @@ import Control.Monad.State(gets)
 import Language.Fun.ISyntax(Name, ToStr(..), Expr(..), ExpX(..), typeOfTcExpr)
 import Language.Fun.ISyntax qualified as Fun
 import Language.Fun.Types qualified as Fun
+import Language.Fun.Types(Qual((:=>)))
+import Language.Fun.Constraints(Subst(..), apply)
 
 type VSubst = Map.Map Name Core.Expr
 emptyVSubst :: VSubst
@@ -176,7 +178,7 @@ translateType tt (Fun.TCon name tas) = translateTCon tt name tas
 
 translateTCon :: TypeTable -> Name -> [Fun.Type] -> Core.Type
 translateTCon tt tycon tas =
-      buildSumType (map (translateDCon tt) cons)
+      buildSumType (map (translateDCon tt tas) cons)
     where
       cons = case Map.lookup tycon tt of
         Just (arity, cs) -> cs
@@ -185,12 +187,18 @@ translateTCon tt tycon tas =
       buildSumType ts = foldr1 Core.TSum ts
 
 
-translateDCon :: TypeTable -> ConInfo -> Core.Type
-translateDCon tt (name, Fun.Forall [] ([] Fun.:=> typ)) =
-    translateProductType tt tas where (tas, tr) = Fun.unwindType typ
-translateDCon tt (name,s) = error("translateDCon: "++str name++":"++str s
-                            ++"is not a monomorphic constructor")
+translateDCon :: TypeTable -> [Fun.Type] -> ConInfo -> Core.Type
+-- translateDCon tt targs (name, Fun.Forall [] ([] Fun.:=> typ)) =
+-- translateProductType tt tas where (tas, tr) = Fun.unwindType typ
 
+translateDCon tt targs (name,Fun.Forall tvs ( [] :=> typ)) =
+    translateProductType tt tas where
+        (tas, tr) = Fun.unwindType typ'
+        subst = Subst (zip tvs targs)
+        typ' = apply subst typ
+
+translateDCon tt targs (name,s) = error("translateDCon: "++str name++":"++str s
+                            ++"is a constrained constructor")
 translateProductType :: TypeTable -> [Fun.Type] -> Core.Type
 translateProductType _ [] = Core.TUnit
 translateProductType tt ts = foldr1 Core.TPair (map (translateType tt) ts)
