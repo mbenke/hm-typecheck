@@ -4,3 +4,11 @@ tmp*
 examples/attic
 cache
 out
+
+# direnv
+/.direnv/
+
+#nix
+/result
+/result/
+
