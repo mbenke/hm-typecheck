@@ -1,5 +1,6 @@
 module Translate where
 import Data.List(union)
+import GHC.Stack
 import Language.Core
 import TM
 import Language.Yul

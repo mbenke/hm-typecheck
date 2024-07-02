@@ -48,8 +48,10 @@ emitSpec origName (name, typ, args, body) = do
     -- warn ["! emitSpec: lambody=", str lambody]
     typeTable <- getTypeTable
     let coreArgs = map (translateArg typeTable) allArgs
+    let resultType = typeOfTcExpr lambody
+    let coreType = translateType typeTable resultType
     coreBody <- translateBody lambody
-    return (Core.SFunction name coreArgs Core.TInt coreBody)
+    return (Core.SFunction name coreArgs coreType coreBody)
 
 
 type ECReader a = ECEnv -> a
