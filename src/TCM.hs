@@ -250,12 +250,9 @@ addMonoBind n t = Map.insert n s where
 addPolyBind :: Name -> Scheme -> Env -> Env
 addPolyBind n s = Map.insert n s
 
-addTypeInfo :: Name -> TypeInfo -> TcState -> TcState
-addTypeInfo name typeInfo state = state { tcsTT = ext (tcsTT state) } where
-  ext = Map.insert name typeInfo
 
-addTypeInfoM :: Name -> TypeInfo -> TCM ()  -- FIXME: needs better name
-addTypeInfoM name typeInfo = modify (addTypeInfo name typeInfo)
+addTypeInfo :: Name -> TypeInfo -> TCM ()
+addTypeInfo name typeInfo = modifyTypeTable (Map.insert name typeInfo)
 
 addClassInfo :: Name -> ClassInfo -> TcState -> TcState
 addClassInfo n ci st = st { tcsCT = extCT (tcsCT st), tcsIT = extIT (tcsIT st) } where
@@ -352,6 +349,9 @@ evalTCM = fst. runTCM
 
 getTypeTable :: TCM TypeTable
 getTypeTable = gets tcsTT
+
+modifyTypeTable :: (TypeTable -> TypeTable) -> TCM ()
+modifyTypeTable f = modify (\st -> st { tcsTT = f (tcsTT st) })
 
 -- find type to which a given data constructor belongs
 lookupCon :: Name -> TypeTable -> (Name, [ConInfo])

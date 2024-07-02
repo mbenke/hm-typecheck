@@ -158,7 +158,7 @@ specialiseTycon (TCon name ts) stypes = do
   conInfos <- getConstructorsFor name
   newCons <- mapM (specialiseConDecl newDType) conInfos
   let newTI = (0, newCons)
-  addTypeInfoM newName newTI
+  addTypeInfo newName newTI
   return newDType
   where
     specialiseConDecl :: Type -> ConInfo -> TCM ConInfo

@@ -233,7 +233,7 @@ tcDecl decl@(TypeDecl typ@(TCon name args) alts) = do
   forM_ constructors addCon
   let arity = length args
   let typeInfo = (arity, constructors)
-  modify (addTypeInfo name typeInfo)
+  addTypeInfo name typeInfo
   return (TypeDecl typ alts)
   where
       addCon (name, typ) = extEnv name typ
