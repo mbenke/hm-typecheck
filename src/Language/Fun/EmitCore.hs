@@ -115,12 +115,21 @@ translateExp (Fun.ECaseX rtyp (ETypedX _ p styp) alts) = do
     let conNames = map fst constructors
     let noMatch c = [Core.SRevert ("no match for: "++c)]
     let defaultAltMap = Map.fromList [(c, noMatch c) | c <- conNames]
-    branches <- forM alts $ \alt@(Fun.CaseAltX _ con args body) -> do
-        (bcode, bval) <- translateAltInto "_caseresult" pval alt
-        pure (con, bcode, bval)
+    branches <- transBranches alts
     let altMap = foldr (\(c, bcode, bval) m -> Map.insert c bcode m) defaultAltMap branches
     let casecode = buildMatch pval altMap constructors
     pure (pcode ++ allocResult ++ casecode, Core.EVar "_caseresult")
+    where
+        transBranch :: Core.Expr -> Fun.TcCaseAlt -> ECReader (Name, [Core.Stmt], Core.Expr)
+        transBranch pval alt@(Fun.CaseAltX _ con args body) = do
+            (bcode, bval) <- translateAltInto "_caseresult" pval alt
+            pure (con, bcode, bval)
+        transBranches :: [Fun.TcCaseAlt] -> ECReader [(Name, [Core.Stmt], Core.Expr)]
+        transBranches [alt] = (:[]) <$> transBranch (Core.EVar "right") alt
+        transBranches (alt:alts) = do
+            b <- transBranch (Core.EVar "left") alt
+            bs <- transBranches alts
+            pure (b:bs)
 translateExp (Fun.ETypedX _ e t) = translateExp e
 -- translateExp (Fun.ECaseX rtyp p [alt]) = error "translateExp: case with untyped scrutinee"
 translateExp exp = error ("translateExp: not implemented for "++str exp)
@@ -228,7 +237,7 @@ encodeCon c (con:cons) e
 
 
 -- translate pattern arguments to a substitution, e.g.
--- p@(Just x) ~> [p->p]
+-- p@(Just x) ~> [x -> p]
 -- p@(Pair x y) ~> [x -> fst p, y -> snd p]
 -- p@(Triple x y z) ~> [x -> fst p, y -> fst (snd p), z -> snd (snd p)]
 translatePatArgs :: Core.Expr -> [Fun.Arg] -> VSubst
