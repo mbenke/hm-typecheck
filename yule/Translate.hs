@@ -80,7 +80,7 @@ genStmt (SReturn expr) = do
     let stmts' = copyLocs resultLoc loc
     pure (stmts ++ stmts')
 
-genStmt (SBlock stmts) = genStmts stmts
+genStmt (SBlock stmts) = withLocalEnv do genStmts stmts
 genStmt (SMatch e alts) = do
     (stmts, loc) <- genExpr e
     case loc of
@@ -93,15 +93,11 @@ genStmt (SMatch e alts) = do
                 yultag t = error ("invalid tag: "++show t)
         _ -> error "SMatch: type mismatch"
 
-genStmt (SFunction name args ret stmts) = do
-    let argTypes = map (\(TArg _ t) -> t) args
-    let info = FunInfo argTypes ret
-    insertFun name info
-    withLocalEnv do
-        yulArgs <- placeArgs args
-        yulResult <- place "_result" ret  -- TODO: special handling of unit
-        yulBody <- genStmts stmts
-        return [YulFun name yulArgs (YReturns yulResult) yulBody]
+genStmt (SFunction name args ret stmts) = withLocalEnv do
+    yulArgs <- placeArgs args
+    yulResult <- place "_result" ret  -- TODO: special handling of unit
+    yulBody <- genStmts stmts
+    return [YulFun name yulArgs (YReturns yulResult) yulBody]
     where
         placeArgs :: [Arg] -> TM [Name]
         placeArgs as = concat <$> mapM placeArg as
@@ -119,6 +115,14 @@ genStmt (SRevert s) = pure
   ]
 
 genStmt e = error $ "genStmt unimplemented for: " ++ show e
+
+-- If the statement is a function definition, record its type
+scanStmt :: Stmt -> TM ()
+scanStmt (SFunction name args ret stmts) = do
+    let argTypes = map (\(TArg _ t) -> t) args
+    let info = FunInfo argTypes ret
+    insertFun name info
+scanStmt _ = pure ()
 
 genAlts :: Location -> Location -> [Alt] -> TM [(YulLiteral, [YulStatement])]
 genAlts locL locR [Alt lname lstmt, Alt rname rstmt] = do
@@ -195,7 +199,7 @@ loadLoc (LocStack i) = YulIdentifier (stkLoc i)
 loadLoc loc = error ("cannot loadLoc "++show loc)
 
 -- copyLocs l r copies the value of r to l
-copyLocs :: Location -> Location -> [YulStatement]
+copyLocs :: HasCallStack => Location -> Location -> [YulStatement]
 copyLocs (LocStack i) r@(LocInt _) = [YulAssign [stkLoc i] (loadLoc r)]
 copyLocs (LocStack i) r@(LocBool _) = [YulAssign [stkLoc i] (loadLoc r)]
 copyLocs (LocStack i) r@(LocStack _) = [YulAssign [stkLoc i] (loadLoc r)]
@@ -216,7 +220,9 @@ copyLocs LocUnit LocUnit = []
 copyLocs l r = error $ "copy: type mismatch - LHS: " ++ show l ++ " RHS: " ++ show r
 
 genStmts :: [Stmt] -> TM [YulStatement]
-genStmts stmts = concat <$> mapM genStmtWithComment stmts
+genStmts stmts = do
+    mapM_ scanStmt stmts   -- scan for functions and record their types
+    concat <$> mapM genStmtWithComment stmts
 
 translateCore :: Core -> TM Yul
 translateCore (Core stmts) = do
