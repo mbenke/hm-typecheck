@@ -6,10 +6,11 @@ import Data.Map qualified as Map
 import Control.Monad(forM)
 import Control.Monad.Reader.Class
 import Control.Monad.State(gets)
+import GHC.Stack
 import Language.Fun.ISyntax(Name, ToStr(..), Expr(..), ExpX(..), typeOfTcExpr)
 import Language.Fun.ISyntax qualified as Fun
 import Language.Fun.Types qualified as Fun
-import Language.Fun.Types(Qual((:=>)))
+import Language.Fun.Types(Qual((:=>)), pattern (:->))
 import Language.Fun.Constraints(Subst(..), apply)
 
 type VSubst = Map.Map Name Core.Expr
@@ -174,10 +175,11 @@ translateArg :: TypeTable -> Fun.Arg -> Core.Arg
 translateArg tt (Fun.TArg n t) = Core.TArg n (translateType tt t)
 translateArg _ (Fun.UArg n) = error("translateArg: UArg "++n)
 
-translateType :: TypeTable -> Fun.Type -> Core.Type
+translateType :: HasCallStack => TypeTable -> Fun.Type -> Core.Type
 translateType _ Fun.TInt = Core.TInt
 translateType _ Fun.TBool = Core.TBool
 translateType _ Fun.TUnit = Core.TUnit
+translateType _ t@(u :-> v) = error ("Cannot translate function type " ++ str t)
 translateType tt (Fun.TCon name tas) = translateTCon tt name tas
 
 -- translate (monomorphic) datatypes to sums of products
@@ -231,9 +233,9 @@ translateConApp c es = do
 encodeCon :: Name -> [ConInfo] ->  Core.Expr -> Core.Expr
 encodeCon c [con] e
   | c == fst con = e
-  | otherwise = error ("encodeCon: constructor "++str c ++ "not found")
+  | otherwise = error ("encodeCon: constructor "++str c ++ " not found in "++str con)
 encodeCon c (con:cons) e
-  | c == fst con = Core.EInl e'
+  | c == fst con = Core.EInl e
   | otherwise = Core.EInr e'
   where e' = encodeCon c cons e
 
