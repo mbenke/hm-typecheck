@@ -170,7 +170,7 @@ tcBind (Bind n args e) = withLocalEnv do
   argTypes' <- withCurrentSubst argTypes
   let typedArgs = zipWith addType args argTypes'
   (tce, ps :=> t) <- withCurrentSubst (tce0, ps0 :=> t1)
-  warn ["< tiBind ", n, str typedArgs, " : ", str (ps :=> t)]
+  warn ["< tcBind ", n, str typedArgs, " : ", str (ps :=> t)]
   return (Bind n typedArgs tce, (ps, t))
   where
     addType :: Arg -> Type -> Arg
@@ -197,7 +197,9 @@ generalize (ps0, t0) = do
   -- reduceContext may have extended the subst, need to reapply it
   t2 <- withCurrentSubst t1
   let typeVars =  ftv (ps2, t2)
-  let scheme = Forall (typeVars \\ envVars) (ps2 :=> t2)
+  let genVars = typeVars \\ envVars
+  let scheme = Forall genVars (ps2 :=> t2)
+  pruneSubst genVars
   info ["< generalize: ", str (legibleScheme scheme)]
   return scheme
 

@@ -217,6 +217,10 @@ clearSubst :: TCM ()
 clearSubst = modify clearS where
     clearS st = st { tcsSubst = emptySubst }
 
+-- |`pruneSubst` removes given type variables from current substitution
+pruneSubst :: [Tyvar] -> TCM ()
+pruneSubst tvs = modify (\st -> st { tcsSubst = expel tvs (tcsSubst st) })
+
 -- Use more legible names for quantified variables
 -- such as    forall a  b . a  -> b  -> a
 -- instead of forall u3 v1. u3 -> v1 -> u3
