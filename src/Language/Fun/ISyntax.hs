@@ -5,7 +5,7 @@ module Language.Fun.ISyntax
 ( Name, Expr, TcExpr
 , ExpX( .., ELam, ELet, EApp, EVapp, EVar, ECon
        , EInt, EBlock, ETyped, ECase
-       , TcInt, TcApp )
+       , TcInt, TcApp, TcVar )
 , XLam, XLet, XApp, XVapp, XVar, XCon
 , XInt, XBlock, XTyped, XCase, XExp
 , Arg(..), argName
@@ -335,6 +335,8 @@ pattern TcInt :: Integer -> TcExpr
 pattern TcInt n = EIntX NoExtField n
 pattern TcApp :: TcExpr -> TcExpr -> TcExpr
 pattern TcApp e1 e2 = EAppX NoExtField e1 e2
+pattern TcVar :: Type -> Name -> TcExpr
+pattern TcVar t n = EVarX t n
 
 type TcDecl = DeclX FunTc
 type TcProg = ProgX FunTc
@@ -388,7 +390,11 @@ instance Show TcExpr where
              showString " "           .
              showsPrec (ap_prec+1) e2
          where ap_prec = 10
-
+  showsPrec d (EVappX _ e es) = showParen True $
+             showsPrec ap_prec e   .
+             showString " "           .
+             showsPrec (ap_prec+1) es
+         where ap_prec = 10
   showsPrec d (ELamX _ args e) = showParen (d > lam_prec) $
              showString "\\" . showArgs args . showString " -> " .
              showsPrec lam_prec e
@@ -450,12 +456,12 @@ typeOfTcExpr e = go e where
   go (EIntX _ _) = TInt
   go (EVarX t _) = t
   go (EConX t _) = t
-  go (EAppX _ e1 e2) = case go e1 of
+  go e@(EAppX _ e1 e2) = case go e1 of
     (_ :-> t2) -> t2
-    _ -> error("typeOfTcExpr: " ++ show e1 ++ " is not a function")
+    _ -> error("typeOfTcExpr[EApp]: " ++ show e1 ++ " is not a function" ++ "\nin "++show e)
   go (EVappX _ e es) = case go e of
     (_ :-> t2) -> t2
-    _ -> error("typeOfTcExpr: " ++ show e ++ " is not a function")
+    _ -> error("typeOfTcExpr[EVapp]: " ++ show e ++ " is not a function"  ++ "\nin "++show e)
   go (ELamX _ args e) = foldr (:->) (go e) (map argType args)
   go (ELetX _ _ e1 e2) = go e2
   go (ETypedX _ _ t) = t

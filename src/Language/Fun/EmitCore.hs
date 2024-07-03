@@ -40,20 +40,51 @@ emitCore = do
 emitSpecs :: (Name, [Specialisation]) -> TCM [Core.Stmt]
 emitSpecs (name, specs) = mapM (emitSpec name) specs
 
+-- | `emitSpec` emits core for a single specialised definition
 emitSpec :: Name -> Specialisation -> TCM Core.Stmt
 emitSpec origName (name, typ, args, body) = do
     let (lambody, lamas) = stripLambda body
-    let allArgs = args ++ lamas
+    lambody' <- etaLong lambody
+    let (body', extraArgs) = stripLambda lambody'
+    let allArgs = args ++ lamas ++ extraArgs
     -- warn ["> emitSpec ", name, " : ", str typ]
+    -- warn ["! body=", str body]
+    -- warn ["! long body=", str body']
     -- warn ["! emitSpec: allArgs=", str allArgs]
     -- warn ["! emitSpec: lambody=", str lambody]
     typeTable <- getTypeTable
     let coreArgs = map (translateArg typeTable) allArgs
-    let resultType = typeOfTcExpr lambody
+    let resultType = typeOfTcExpr body'
     let coreType = translateType typeTable resultType
-    coreBody <- translateBody lambody
+    coreBody <- translateBody body'
     return (Core.SFunction name coreArgs coreType coreBody)
+    -- return (Core.SFunction name coreArgs coreType [])
 
+
+-- | `etaLong` builds an eta-long form of an expression
+-- i.e. if an expression is of function type, it is converted
+-- to a lambda with a fresh variable as an argument
+etaLong :: Fun.TcExpr -> TCM Fun.TcExpr
+etaLong (Fun.ELamX x args body) = do
+    body' <- etaLong body
+    return (Fun.ELamX x args body')
+etaLong e = do
+    (xs, body) <- go (typeOfTcExpr e) e
+    case xs of
+        [] -> return body
+        _ -> return  (Fun.ELamX  mempty (mkArgs xs) (Fun.EVappX mempty e (mkVars xs)))
+    where
+        mkArgs :: [(Name, Fun.Type)] -> [Fun.Arg]
+        mkArgs = map (uncurry Fun.TArg)
+        mkVars :: [(Name, Fun.Type)] -> [Fun.TcExpr]
+        mkVars = map (\(n, t) -> Fun.EVarX t n)
+        go :: Fun.Type -> Fun.TcExpr -> TCM ([(Name, Fun.Type)], Fun.TcExpr)
+        go (t :-> u) e = do
+            s <- tcmDeplete
+            let x = ('$':s, t)
+            (xs, e') <- go u e
+            return (x:xs, e')
+        go t e = pure ([], e)
 
 type ECReader a = ECEnv -> a
 type Translation a = ECReader([Core.Stmt], a)
