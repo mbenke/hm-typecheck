@@ -30,8 +30,32 @@ Requires a working GHC installation, see e.g. https://www.haskell.org/ghcup/
 ### Running
 
 ```
-cabal run fun examples/prog1
+cabal run fun examples/mona/01main.fun
 ```
+
+If the input file has a monomorphic `main` function, all its dependencies are monomorphised and a corresponding Core program is output to `output.core`,
+which can be then translated to Yul using `yule`:
+
+```
+$ cabal run yule -- output.core
+found main
+writing output to Output.sol
+```
+...and run using `forge script`:
+```
+$ forge script Output.sol
+[.] Compiling...
+[.] Compiling 1 files with 0.8.23
+[.] Solc 0.8.23 finished in 284.26ms
+Compiler run successful!
+Script ran successfully.
+Gas used: 24379
+
+== Logs ==
+  RESULT -->  42
+```
+
+(see also `yule/README.md`)
 
 ## Project structure
 
