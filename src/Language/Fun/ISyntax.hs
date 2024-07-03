@@ -359,7 +359,7 @@ instance HasTypes TcExpr where
   apply s (EIntX _ n) = EIntX NoExtField n
   apply s (EBlockX _ stmts) = EBlockX NoExtField stmts
   apply s (ETypedX _ e t) = ETypedX NoExtField (apply s e) t
-  apply s (ECaseX t e alts) = ECaseX (apply s t) (apply s e) alts
+  apply s (ECaseX t e alts) = ECaseX (apply s t) (apply s e) (map (apply s) alts)
   apply s (ExpX a) = absurd a
   ftv (ELamX _ args e) = ftv e
   ftv (ELetX _ _ e1 e2) = ftv e1 `union` ftv e2
@@ -371,6 +371,7 @@ instance HasTypes TcExpr where
   ftv (EBlockX _ stmts) = []
   ftv (ETypedX _ e _) = ftv e
   ftv (ECaseX t e alts) = ftv t `union` ftv e `union` foldr union [] (map ftv alts)
+  ftv (ExpX a) = absurd a
 
 instance HasTypes TcCaseAlt where
   apply s (CaseAltX x n args e) = CaseAltX x n args (apply s e)
