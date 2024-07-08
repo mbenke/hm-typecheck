@@ -24,8 +24,8 @@ emptySubst = Subst []
 u +-> t     = Subst [(u, t)]
 
 expel :: [Tyvar] -> Subst -> Subst
-expel [] s = s
-expel (v:vs) (Subst s) = Subst $ filter ((v/=).fst) s
+expel vs (Subst s) = Subst $ foldr remove s vs where
+  remove v = filter ((v/=).fst)
 
 class HasTypes a where
     apply :: Subst -> a -> a
