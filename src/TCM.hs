@@ -1,4 +1,5 @@
 module TCM where
+import Control.Monad(when)
 import Control.Monad.Except
 import Control.Monad.State
 import Control.Monad.Identity

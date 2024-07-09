@@ -10,7 +10,7 @@
     ins.flake-utils.lib.eachDefaultSystem (system : let
       pkgs = import ins.nixpkgs { inherit system; };
       gitignore = pkgs.nix-gitignore.gitignoreSourcePure [ ./.gitignore ];
-      ghcPkgs = pkgs.haskell.packages.ghc925;
+      ghcPkgs = pkgs.haskell.packages.ghc982;
       hmPkgs = ghcPkgs.override {
         overrides = self: super: rec {
           hm = (self.callCabal2nix "hm" (gitignore ./.) {});
