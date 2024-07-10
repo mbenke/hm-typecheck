@@ -1,6 +1,8 @@
 function testfun() {
-    echo $1
-    cabal run fun -- -v $1 && \
+    file=$1
+    echo $file
+    shift
+    cabal run fun -- $* $file && \
     cabal run yule -- output.core && \
     forge script Output.sol
 }    
