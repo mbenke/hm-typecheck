@@ -17,8 +17,11 @@ type VSubst = Map.Map Name Core.Expr
 emptyVSubst :: VSubst
 emptyVSubst = Map.empty
 
-data  ECEnv = ECEnv { ecSubst :: VSubst, ecTT :: TypeTable}
-
+data  ECEnv = ECEnv
+            { ecSubst :: VSubst
+            , ecTT :: TypeTable
+            , ecNest :: Int
+            }
 
 extendECEnv :: VSubst -> ECEnv -> ECEnv
 extendECEnv subst env = env { ecSubst = ecSubst env <> subst}
@@ -30,6 +33,12 @@ readConstructors name env = case Map.lookup name (ecTT env) of
 
 conSiblings :: Name -> ECEnv -> [ConInfo]
 conSiblings con env = lookupConSiblings con (ecTT env)
+
+readNest :: ECReader Int
+readNest = ecNest
+
+localNest :: ECReader a -> ECReader a
+localNest = local (\e -> e { ecNest = ecNest e + 1})
 
 emitCore :: TCM Core
 emitCore = do
@@ -92,7 +101,7 @@ type Translation a = ECReader([Core.Stmt], a)
 translateBody :: Fun.TcExpr -> TCM [Core.Stmt]
 translateBody exp = do
     typeTable <- gets tcsTT
-    let env = ECEnv emptyVSubst typeTable
+    let env = ECEnv { ecSubst = emptyVSubst,  ecTT = typeTable, ecNest = 1}
     let (code, result) = translateExp exp env
     return (code ++ [Core.SReturn result])
 
@@ -140,7 +149,8 @@ translateExp (Fun.ECaseX rtyp (ETypedX _ p styp) alts) = do
     let styp = typeOfTcExpr p
     typeTable <- reader ecTT
     let coreResultType = translateType typeTable rtyp
-    let allocResult = [Core.SAlloc "_caseresult" coreResultType]
+    caseresult <- caseresultName
+    let allocResult = [Core.SAlloc caseresult coreResultType]
     (pcode, pval) <- translateExp p
     let typename = case styp of
             Fun.TCon name _ -> name
@@ -152,11 +162,12 @@ translateExp (Fun.ECaseX rtyp (ETypedX _ p styp) alts) = do
     branches <- transBranches alts
     let altMap = foldr (\(c, bcode, bval) m -> Map.insert c bcode m) defaultAltMap branches
     let casecode = buildMatch pval altMap constructors
-    pure (pcode ++ allocResult ++ casecode, Core.EVar "_caseresult")
+    pure (pcode ++ allocResult ++ casecode, Core.EVar caseresult)
     where
         transBranch :: Core.Expr -> Fun.TcCaseAlt -> ECReader (Name, [Core.Stmt], Core.Expr)
         transBranch pval alt@(Fun.CaseAltX _ con args body) = do
-            (bcode, bval) <- translateAltInto "_caseresult" pval alt
+            result <- caseresultName
+            (bcode, bval) <- localNest $ translateAltInto result pval alt
             pure (con, bcode, bval)
         transBranches :: [Fun.TcCaseAlt] -> ECReader [(Name, [Core.Stmt], Core.Expr)]
         transBranches [alt] = (:[]) <$> transBranch (Core.EVar "right") alt
@@ -164,6 +175,10 @@ translateExp (Fun.ECaseX rtyp (ETypedX _ p styp) alts) = do
             b <- transBranch (Core.EVar "left") alt
             bs <- transBranches alts
             pure (b:bs)
+        caseresultName :: ECReader Name
+        caseresultName = do
+            nest <- readNest
+            pure ("_caseresult" ++ show nest)
 translateExp (Fun.ETypedX _ e t) = translateExp e
 -- translateExp (Fun.ECaseX rtyp p [alt]) = error "translateExp: case with untyped scrutinee"
 translateExp exp = error ("translateExp: not implemented for "++str exp)
