@@ -7,7 +7,7 @@ import Language.Yul
 
 
 genExpr :: Expr -> TM ([YulStatement], Location)
-genExpr (EInt n) = pure ([], LocInt n)
+genExpr (EWord n) = pure ([], LocWord n)
 genExpr (EBool b) = pure ([], LocBool b)
 genExpr (EVar name) = do
     loc <- lookupVar name
@@ -45,7 +45,7 @@ genExpr (ECall name args) = do
 genExpr e = error ("genExpr: not implemented for "++show e)
 
 flattenRhs :: Location -> [YulExpression]
-flattenRhs (LocInt n) = [yulInt n]
+flattenRhs (LocWord n) = [yulInt n]
 flattenRhs (LocBool b) = [yulBool b]
 flattenRhs (LocStack i) = [YulIdentifier (stkLoc i)]
 flattenRhs (LocPair l r) = flattenRhs l ++ flattenRhs r
@@ -89,7 +89,7 @@ genStmt (SMatch e alts) = do
             pure (stmts ++ [YulSwitch (yultag loctag) yulAlts Nothing]) where
                 yultag (LocStack i) = YulIdentifier (stkLoc i)
                 yultag (LocBool b) = yulBool b
-                yultag (LocInt n) = yulInt n
+                yultag (LocWord n) = yulInt n
                 yultag t = error ("invalid tag: "++show t)
         _ -> error "SMatch: type mismatch"
 
@@ -143,7 +143,7 @@ allocVar name typ = do
     return stmts
 
 buildLoc :: Type -> TM Location
-buildLoc TInt = LocStack <$> freshId
+buildLoc TWord = LocStack <$> freshId
 buildLoc TBool = LocStack <$> freshId
 buildLoc (TPair t1 t2) = do
     l1 <- buildLoc t1
@@ -193,14 +193,14 @@ coreAssign lhs rhs = do
     pure (stmts1 ++ stmts2 ++ stmts3)
 
 loadLoc :: Location -> YulExpression
-loadLoc (LocInt n) = YulLiteral (YulNumber (fromIntegral n))
+loadLoc (LocWord n) = YulLiteral (YulNumber (fromIntegral n))
 loadLoc (LocBool b) = YulLiteral (if b then YulTrue else YulFalse)
 loadLoc (LocStack i) = YulIdentifier (stkLoc i)
 loadLoc loc = error ("cannot loadLoc "++show loc)
 
 -- copyLocs l r copies the value of r to l
 copyLocs :: HasCallStack => Location -> Location -> [YulStatement]
-copyLocs (LocStack i) r@(LocInt _) = [YulAssign [stkLoc i] (loadLoc r)]
+copyLocs (LocStack i) r@(LocWord _) = [YulAssign [stkLoc i] (loadLoc r)]
 copyLocs (LocStack i) r@(LocBool _) = [YulAssign [stkLoc i] (loadLoc r)]
 copyLocs (LocStack i) r@(LocStack _) = [YulAssign [stkLoc i] (loadLoc r)]
 copyLocs (LocStack _) LocUndefined = [YulComment "impossible"]
@@ -248,5 +248,5 @@ isFunction (SFunction {}) = True
 isFunction _ = False
 
 addMain :: [Stmt] -> [Stmt]
-addMain stmts = functions ++ [SFunction "main" [] TInt other]
+addMain stmts = functions ++ [SFunction "main" [] TWord other]
   where (functions, other) = span isFunction stmts

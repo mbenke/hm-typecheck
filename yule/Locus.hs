@@ -7,7 +7,7 @@ Location tree with addresses a:
 - location for sum is a location for tag and locations for components
 -}
 data LocTree a 
-    = LocInt Int      -- int literal
+    = LocWord Integer -- int literal
     | LocBool Bool    -- bool literal
     | LocUnit         -- unit literal
     | LocStack a      -- stack location

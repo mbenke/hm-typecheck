@@ -106,7 +106,7 @@ translateBody exp = do
     return (code ++ [Core.SReturn result])
 
 translateExp :: Fun.TcExpr -> Translation Core.Expr
-translateExp (Fun.TcInt n) = pure ([], Core.EInt (fromInteger n))
+translateExp (Fun.TcInt n) = pure ([], Core.EWord (fromInteger n))
 translateExp (Fun.EVarX t n) = do
     replace <- reader (Map.lookup n . ecSubst)
     case replace of
@@ -222,7 +222,7 @@ translateArg tt (Fun.TArg n t) = Core.TArg n (translateType tt t)
 translateArg _ (Fun.UArg n) = error("translateArg: UArg "++n)
 
 translateType :: HasCallStack => TypeTable -> Fun.Type -> Core.Type
-translateType _ Fun.TInt = Core.TInt
+translateType _ Fun.TInt = Core.TWord
 translateType _ Fun.TBool = Core.TBool
 translateType _ Fun.TUnit = Core.TUnit
 translateType _ t@(u :-> v) = error ("Cannot translate function type " ++ str t)

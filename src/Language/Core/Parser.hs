@@ -5,7 +5,7 @@ import Language.Core
       Arg(..),
       Stmt(SExpr, SAlloc, SReturn, SBlock, SMatch, SFunction, SAssign, SAssembly, SRevert),
       Expr(..),
-      Type(TSum, TInt, TBool, TUnit, TPair) )
+      Type(..) )
 import Common.LightYear
 import Text.Megaparsec.Char.Lexer qualified as L
 import Control.Monad.Combinators.Expr
@@ -54,7 +54,7 @@ pKeyword w = try $ lexeme (string w <* notFollowedBy identChar)
 
 pPrimaryType :: Parser Type
 pPrimaryType = choice
-    [ TInt <$ pKeyword "int"
+    [ TWord <$ pKeyword "word"
     , TBool <$ pKeyword "bool"
     , TUnit <$ pKeyword "unit"
     , parens coreType
@@ -69,7 +69,7 @@ coreTypeTable = [[InfixR (TPair <$ symbol "*")]
 
 pPrimaryExpr :: Parser Expr
 pPrimaryExpr = choice
-    [ EInt . fromInteger <$> integer
+    [ EWord <$> integer
     , EBool True <$ pKeyword "true"
     , EBool False <$ pKeyword "false"
     , pTuple

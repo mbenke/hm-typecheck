@@ -5,7 +5,7 @@ import Language.Yul
 -- type Name = String
 
 data Type
-    = TInt
+    = TWord
     | TBool
     | TPair Type Type
     | TSum Type Type
@@ -14,7 +14,7 @@ data Type
     deriving (Show)
 
 data Expr
-    = EInt Int
+    = EWord Integer
     | EBool Bool
     | EVar Name
     | EPair Expr Expr
@@ -51,7 +51,7 @@ newtype Core = Core [Stmt]
 instance Show Core where show = render . pretty
 
 instance Pretty Type where
-    pretty TInt = text "int"
+    pretty TWord = text "word"
     pretty TBool = text "bool"
     pretty TUnit = text "unit"
     pretty (TPair t1 t2) = parens (pretty t1 <+> text "*" <+> pretty t2)
@@ -59,7 +59,7 @@ instance Pretty Type where
     pretty (TFun ts t) = parens (hsep (map pretty ts) <+> text "->" <+> pretty t)
 
 instance Pretty Expr where
-    pretty (EInt i) = text (show i)
+    pretty (EWord i) = text (show i)
     pretty (EBool b) = text (show b)
     pretty EUnit = text "()"
     pretty (EVar x) = text x
